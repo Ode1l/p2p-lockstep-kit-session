@@ -2,7 +2,7 @@ export type { SignalMessage, SignalPayload, SignalType } from "./signaling";
 export type {
   MessageDomain,
   MessageType,
-  WireEnvelope,
+  Envelope,
 } from "./envelope";
 export { resolveMessageDomain } from "./envelope";
 export type {

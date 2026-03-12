@@ -4,7 +4,7 @@ import type { SessionMessageType } from "./session";
 export type MessageType = SessionMessageType | GameMessageType;
 export type MessageDomain = "session" | "game";
 
-export type WireEnvelope<T = unknown> = {
+export type Envelope<T = unknown> = {
   domain?: MessageDomain;
   type: MessageType;
   from: string;

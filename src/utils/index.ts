@@ -6,7 +6,7 @@ export type { Serialized } from "./serialization";
 
 export type { SignalMessage, SignalPayload, SignalType } from "./protocol/signaling";
 export type {
-  WireEnvelope,
+  Envelope,
   MessageDomain,
   MessageType,
   SessionMessageType,

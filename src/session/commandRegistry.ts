@@ -2,7 +2,7 @@
 import {
   resolveMessageDomain,
   type MessageType,
-  type WireEnvelope as Envelope,
+  Envelope,
 } from "../utils";
 
 export type CommandOrigin = "local" | "remote";

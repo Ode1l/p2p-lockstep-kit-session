@@ -5,17 +5,4 @@ export { encode, decode, decodeSafe } from "./serialization";
 export type { Serialized } from "./serialization";
 
 export type { SignalMessage, SignalPayload, SignalType } from "./protocol/signaling";
-export type {
-  Envelope,
-  MessageDomain,
-  MessageType,
-  SessionMessageType,
-  GameMessageType,
-  ReadyPayload,
-  StartPayload,
-  UndoPayload,
-  RejectPayload,
-  SyncStatePayload,
-  MovePayload,
-} from "./protocol";
-export { resolveMessageDomain } from "./protocol";
+export type { SessionMessageType, SessionMessage } from "./protocol/session";

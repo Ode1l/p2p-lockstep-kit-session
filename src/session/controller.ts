@@ -15,16 +15,11 @@ import { createNotifier } from "./ports/notifier";
 import { createPendingState } from "./state/pending";
 import type { PendingActionType } from "./state/pending";
 import { createMoveHandlers } from "../game/handlers/move";
-import { createReadyHandler } from "./handlers/ready";
-import { createStartHandler } from "./handlers/start";
+import { createLobbyHandlers } from "./handlers/lobby";
 import { createUndoHandler } from "../game/handlers/undo";
-import { createRestartHandler } from "./handlers/restart";
-import { createApproveHandler } from "./handlers/approve";
-import { createRejectHandler } from "./handlers/reject";
-import { createRejoinHandler } from "./rejoin/handler";
 import { createConnectionControl } from "./hooks/connection";
 import { createVoiceControl } from "./hooks/voice";
-import { createRejoinChoiceControl } from "./rejoin/choice";
+import { createRejoinControl } from "./rejoin/control";
 import { createSessionFsm } from "./state/fsm";
 import type { SessionDeps } from "./sessionTypes";
 
@@ -116,32 +111,22 @@ export const createSessionController = (options: SessionOptions) => {
     }
   });
   const moveHandlers = createMoveHandlers(handlerDeps);
-  const handleReady = createReadyHandler(handlerDeps);
-  const handleStart = createStartHandler(handlerDeps, {
+  const lobbyHandlers = createLobbyHandlers(handlerDeps, {
     startMatch: state.startMatch,
     setLastStartSenderColor: (color) => {
       lastStartSenderColor = color;
     },
     getLastStartSenderColor: () => lastStartSenderColor,
     canStart: () => !!state.peer.getId() && state.ready.get().peer,
+    resetToLobby: state.resetToLobby,
   });
   const handleUndo = createUndoHandler(handlerDeps);
-  const handleRestart = createRestartHandler(handlerDeps, {
-    resetToLobby: state.resetToLobby,
-  });
-  const handleApprove = createApproveHandler(handlerDeps, {
-    resetToLobby: state.resetToLobby,
-  });
-  const handleReject = createRejectHandler(handlerDeps, {
-    resetToLobby: state.resetToLobby,
-  });
-  const handleRejoin = createRejoinHandler(handlerDeps, {
+  const rejoinControl = createRejoinControl(handlerDeps, {
     resumeTTLms,
     resetToLobby: state.resetToLobby,
   });
-  const maybePromptRejoinChoice = createRejoinChoiceControl(handlerDeps);
   const onConnectionState = createConnectionControl(handlerDeps, {
-    maybePromptRejoinChoice,
+    maybePromptRejoin: rejoinControl.maybePromptRejoin,
   });
   const middlewares = [
     createFsmGuardMiddleware({
@@ -157,12 +142,15 @@ export const createSessionController = (options: SessionOptions) => {
   const bus = createCommandBus({
     sid,
     handlers: {
-      READY: (payload, _meta, origin) => handleReady(payload as { ready: boolean }, origin),
+      READY: (payload, _meta, origin) => lobbyHandlers.handleReady(payload as { ready: boolean }, origin),
       START: (payload, _meta, origin) =>
-        handleStart(payload as { senderColor: 1 | 2; receiverColor: 1 | 2; firstPlayer: 1 | 2 }, origin),
+        lobbyHandlers.handleStart(
+          payload as { senderColor: 1 | 2; receiverColor: 1 | 2; firstPlayer: 1 | 2 },
+          origin,
+        ),
       UNDO: (payload, _meta, origin) => handleUndo(payload as { count?: 1 | 2 }, origin),
-      RESTART: (_payload, _meta, origin) => handleRestart(origin),
-      APPROVE: () => handleApprove(),
+      RESTART: (_payload, _meta, origin) => lobbyHandlers.handleRestart(origin),
+      APPROVE: () => lobbyHandlers.handleApprove(),
       REJECT: (payload, meta) =>
         (payload as { action: "undo" | "rejoin" | "restart" | "move"; reason?: string })
           .action === "move"
@@ -170,8 +158,10 @@ export const createSessionController = (options: SessionOptions) => {
               payload as { action: "move"; reason?: string },
               meta,
             )
-          : handleReject(payload as { action: "undo" | "rejoin" | "restart"; reason?: string }),
-      REJOIN: (_payload, meta) => handleRejoin(meta),
+          : lobbyHandlers.handleReject(
+              payload as { action: "undo" | "rejoin" | "restart"; reason?: string },
+            ),
+      REJOIN: (_payload, meta) => rejoinControl.handleRejoinMessage(meta),
       MOVE: (payload, meta, origin) =>
         moveHandlers.handleMove(
           payload as { x: number; y: number; player: 1 | 2 },

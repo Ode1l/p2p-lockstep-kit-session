@@ -1,7 +1,15 @@
-import type { SessionDeps } from "../sessionTypes";
+import type { SessionState } from "../state/state";
+import type { SessionFsm } from "../state/fsm";
+import type { Notifier } from "../ports/notifier";
+import type { PendingController } from "../state/pending";
 
 export const createConnectionControl = (
-  deps: SessionDeps,
+  deps: {
+    state: SessionState;
+    notifier: Notifier;
+    fsm: SessionFsm;
+    pending: PendingController;
+  },
   hooks: { maybeAutoRejoin: () => Promise<void> },
 ) => {
   const { state, notifier, fsm, pending } = deps;

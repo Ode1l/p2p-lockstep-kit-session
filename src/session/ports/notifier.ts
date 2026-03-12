@@ -38,3 +38,5 @@ export const createNotifier = (deps: {
     onRejectSync,
   };
 };
+
+export type Notifier = ReturnType<typeof createNotifier>;

@@ -1,8 +1,19 @@
 import type { UndoPayload } from "../../utils";
-import type { SessionDeps } from "../../session/sessionTypes";
-import { createEnvelope } from "../../session/net";
+import { createEnvelope, type NetAdapter } from "../../session/net";
+import type { SessionState } from "../../session/state/state";
+import type { ShellUi } from "../../ui/types";
+import type { SessionFsm } from "../../session/state/fsm";
+import type { PendingController } from "../../session/state/pending";
 
-export const createUndoHandler = (deps: SessionDeps) => {
+export const createUndoHandler = (deps: {
+  state: SessionState;
+  ui: ShellUi;
+  net: NetAdapter;
+  sid: string;
+  nextSeq: () => number;
+  pending: PendingController;
+  fsm: SessionFsm;
+}) => {
   const { state, ui, net, sid, nextSeq, pending, fsm } = deps;
 
   const sendSession = (

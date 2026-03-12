@@ -5,7 +5,7 @@
 import { createNetClient, createEnvelope, type NetAdapter } from "./net";
 import type { GameMove, IGamePlugin } from "../game/types";
 import type { ShellUi } from "../ui/types";
-import { createSessionState } from "./state/state";
+import { createSessionState, type SessionState } from "./state/state";
 import { createRegisterPolicy } from "./policy";
 import { createSessionFlow } from "./flow";
 import { consoleLogger, type Logger } from "../utils";
@@ -13,7 +13,6 @@ import { createCommandBus } from "./commandRegistry";
 import { createDefaultMiddlewares, createFsmGuardMiddleware } from "./commandMiddleware";
 import { createNotifier } from "./ports/notifier";
 import { createPendingState } from "./state/pending";
-import type { PendingActionType } from "./state/pending";
 import { createMoveHandlers } from "../game/handlers/move";
 import { createLobbyHandlers } from "./handlers/lobby";
 import { createUndoHandler } from "../game/handlers/undo";
@@ -21,7 +20,7 @@ import { createConnectionControl } from "./hooks/connection";
 import { createVoiceControl } from "./hooks/voice";
 import { createRejoinControl } from "./rejoin/control";
 import { createSessionFsm } from "./state/fsm";
-import type { SessionDeps, SessionState } from "./sessionTypes";
+type PendingActionType = "undo" | "restart" | "rejoin";
 
 export type SessionOptions = {
   mount: HTMLElement;
@@ -88,7 +87,7 @@ export const createSessionController = (options: SessionOptions) => {
     showNotice: ui.showNotice,
     log: ui.log,
   });
-  const handlerDeps: SessionDeps = {
+  const sharedDeps = {
     state: sessionState,
     ui,
     fsm,
@@ -120,8 +119,8 @@ export const createSessionController = (options: SessionOptions) => {
       ui.showNotice?.(label);
     }
   });
-  const moveHandlers = createMoveHandlers(handlerDeps);
-  const lobbyHandlers = createLobbyHandlers(handlerDeps, {
+  const moveHandlers = createMoveHandlers(sharedDeps);
+  const lobbyHandlers = createLobbyHandlers(sharedDeps, {
     startMatch: sessionState.startMatch,
     setLastStartSenderColor: (color) => {
       lastStartSenderColor = color;
@@ -130,11 +129,11 @@ export const createSessionController = (options: SessionOptions) => {
     canStart: () => !!sessionState.peer.getId() && sessionState.ready.get().peer,
     resetToLobby: sessionState.resetToLobby,
   });
-  const handleUndo = createUndoHandler(handlerDeps);
-  const rejoinControl = createRejoinControl(handlerDeps, {
+  const handleUndo = createUndoHandler(sharedDeps);
+  const rejoinControl = createRejoinControl(sharedDeps, {
     resetToLobby: sessionState.resetToLobby,
   });
-  const onConnectionState = createConnectionControl(handlerDeps, {
+  const onConnectionState = createConnectionControl(sharedDeps, {
     maybeAutoRejoin: rejoinControl.maybeAutoRejoin,
   });
   const middlewares = [

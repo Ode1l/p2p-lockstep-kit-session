@@ -1,6 +1,8 @@
-import { createEnvelope } from "../net";
-import type { SessionDeps } from "../sessionTypes";
+import { createEnvelope, type NetAdapter } from "../net";
 import type { SyncStatePayload } from "../../utils";
+import type { SessionState } from "../state/state";
+import type { SessionFsm } from "../state/fsm";
+import type { PendingController } from "../state/pending";
 
 export type RejoinControl = {
   handleRejoinMessage: (payload: SyncStatePayload, meta: { turn?: number; stateHash?: string }) => Promise<void>;
@@ -8,7 +10,14 @@ export type RejoinControl = {
 };
 
 export const createRejoinControl = (
-  deps: SessionDeps,
+  deps: {
+    state: SessionState;
+    net: NetAdapter;
+    sid: string;
+    nextSeq: () => number;
+    pending: PendingController;
+    fsm: SessionFsm;
+  },
   hooks: { resetToLobby: () => void },
 ): RejoinControl => {
   const { state, net, sid, nextSeq, pending, fsm } = deps;

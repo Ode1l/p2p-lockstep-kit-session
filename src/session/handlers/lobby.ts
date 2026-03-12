@@ -1,6 +1,11 @@
 import type { ReadyPayload, RejectPayload, StartPayload, SessionMessageType } from "../../utils";
 import { createEnvelope } from "../net";
-import type { SessionDeps } from "../sessionTypes";
+import type { SessionState } from "../state/state";
+import type { ShellUi } from "../../ui/types";
+import type { SessionFsm } from "../state/fsm";
+import type { NetAdapter } from "../net";
+import type { Notifier } from "../ports/notifier";
+import type { PendingController } from "../state/pending";
 
 export type LobbyHandlers = {
   handleReady: (payload: ReadyPayload, origin: "local" | "remote") => void;
@@ -11,7 +16,16 @@ export type LobbyHandlers = {
 };
 
 export const createLobbyHandlers = (
-  deps: SessionDeps,
+  deps: {
+    state: SessionState;
+    ui: ShellUi;
+    fsm: SessionFsm;
+    net: NetAdapter;
+    sid: string;
+    nextSeq: () => number;
+    notifier: Notifier;
+    pending: PendingController;
+  },
   hooks: {
     startMatch: (myColor: 1 | 2) => void;
     setLastStartSenderColor: (color: 1 | 2) => void;

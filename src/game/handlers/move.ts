@@ -1,10 +1,19 @@
 import type { MovePayload, RejectPayload } from "../../utils";
 import type { GameMove, GameStatus } from "../types";
-import type { SessionDeps } from "../../session/sessionTypes";
-import { createEnvelope } from "../../session/net";
+import { createEnvelope, type NetAdapter } from "../../session/net";
 import { createMovePolicy } from "../rules";
+import type { SessionState } from "../../session/state/state";
+import type { Notifier } from "../../session/ports/notifier";
+import type { SessionFsm } from "../../session/state/fsm";
 
-export const createMoveHandlers = (deps: SessionDeps) => {
+export const createMoveHandlers = (deps: {
+  state: SessionState;
+  net: NetAdapter;
+  sid: string;
+  nextSeq: () => number;
+  notifier: Notifier;
+  fsm: SessionFsm;
+}) => {
   const { state, net, sid, nextSeq, notifier, fsm } = deps;
   const movePolicy = createMovePolicy({
     getStatus: state.getStatus,

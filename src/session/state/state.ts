@@ -328,3 +328,5 @@ export const createSessionState = (
     applyUndoCount,
   };
 };
+
+export type SessionState = ReturnType<typeof createSessionState>;

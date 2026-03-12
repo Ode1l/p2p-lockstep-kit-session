@@ -111,3 +111,5 @@ export const createPendingState = () => {
     onChange,
   };
 };
+
+export type PendingController = ReturnType<typeof createPendingState>;

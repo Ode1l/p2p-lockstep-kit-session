@@ -1,20 +1,21 @@
 import { createEnvelope } from "../net";
 import type { SessionDeps } from "../sessionTypes";
+import type { SyncStatePayload } from "../../utils";
 
 export type RejoinControl = {
-  handleRejoinMessage: (meta: { turn?: number; stateHash?: string }) => Promise<void>;
-  maybePromptRejoin: () => Promise<void>;
+  handleRejoinMessage: (payload: SyncStatePayload, meta: { turn?: number; stateHash?: string }) => Promise<void>;
+  maybeAutoRejoin: () => Promise<void>;
 };
 
 export const createRejoinControl = (
   deps: SessionDeps,
-  hooks: { resumeTTLms: number; resetToLobby: () => void },
+  hooks: { resetToLobby: () => void },
 ): RejoinControl => {
-  const { state, ui, net, sid, nextSeq, pending } = deps;
-  const { resumeTTLms, resetToLobby } = hooks;
+  const { state, net, sid, nextSeq, pending } = deps;
+  const { resetToLobby } = hooks;
 
   const sendSession = (
-    type: "REJOIN" | "APPROVE" | "REJECT",
+    type: "REJOIN" | "APPROVE" | "REJECT" | "SYNC_STATE",
     payload?: unknown,
     meta?: { turn?: number; stateHash?: string },
   ) => {
@@ -51,37 +52,50 @@ export const createRejoinControl = (
     sendSession("REJOIN", undefined, { turn, stateHash: cacheHash });
   };
 
-  const handleRejoinMessage = async (meta: { turn?: number; stateHash?: string }) => {
+  const sendSyncState = (statePayload: SyncStatePayload) => {
+    sendSession("SYNC_STATE", statePayload);
+  };
+
+  const applyRemoteState = (payload: SyncStatePayload) => {
+    state.applySnapshot(payload);
+    state.startedState.set(true);
+    state.ready.clear();
+    state.render();
+  };
+
+  const handleRejoinMessage = async (
+    payload: SyncStatePayload,
+    meta: { turn?: number; stateHash?: string },
+  ) => {
     if (meta.turn === undefined || !meta.stateHash) {
       sendReject("cache-mismatch");
       resetToLobby();
       return;
     }
-    const canResume = state.canRestore({ cacheHash: meta.stateHash, turn: meta.turn }, resumeTTLms);
-    if (!canResume) {
-      sendReject("cache-mismatch");
-      resetToLobby();
-      return;
-    }
-    const approved = await (ui.promptRejoinApprove?.() ?? Promise.resolve(false));
-    if (approved) {
+
+    const localHash = state.game.getHash();
+    const localTurn = state.getStatus().turn;
+
+    if (meta.stateHash === localHash && meta.turn === localTurn) {
       sendApprove();
       state.startedState.set(true);
       state.ready.clear();
-    } else {
-      sendReject("rejected");
-      resetToLobby();
-    }
-    state.render();
-  };
-
-  const maybePromptRejoin = async () => {
-    if (!state.hasCache()) {
+      state.render();
       return;
     }
-    const choice = await (ui.promptRejoinChoice?.() ?? Promise.resolve("restart"));
-    if (choice === "restart") {
-      state.resetToLobby();
+
+    if (localTurn >= meta.turn) {
+      sendSyncState({ state: state.game.getSnapshot() });
+      sendApprove();
+      return;
+    }
+
+    applyRemoteState(payload);
+    sendApprove();
+  };
+
+  const maybeAutoRejoin = async () => {
+    if (!state.hasCache()) {
       return;
     }
     const { cacheHash, cacheTurn } = state.getCacheMeta();
@@ -91,6 +105,6 @@ export const createRejoinControl = (
 
   return {
     handleRejoinMessage,
-    maybePromptRejoin,
+    maybeAutoRejoin,
   };
 };

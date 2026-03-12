@@ -43,7 +43,6 @@ export type SessionOptions = {
 export const createSessionController = (options: SessionOptions) => {
   const { mount, plugin, ui } = options;
   const sid = options.sid ?? plugin.id;
-  const resumeTTLms = options.resumeTTLms ?? 300000;
   const net = options.net ?? createNetClient();
   const logger = options.logger ?? consoleLogger;
   const pending = createPendingState();
@@ -122,11 +121,10 @@ export const createSessionController = (options: SessionOptions) => {
   });
   const handleUndo = createUndoHandler(handlerDeps);
   const rejoinControl = createRejoinControl(handlerDeps, {
-    resumeTTLms,
     resetToLobby: state.resetToLobby,
   });
   const onConnectionState = createConnectionControl(handlerDeps, {
-    maybePromptRejoin: rejoinControl.maybePromptRejoin,
+    maybeAutoRejoin: rejoinControl.maybeAutoRejoin,
   });
   const middlewares = [
     createFsmGuardMiddleware({
@@ -161,7 +159,8 @@ export const createSessionController = (options: SessionOptions) => {
           : lobbyHandlers.handleReject(
               payload as { action: "undo" | "rejoin" | "restart"; reason?: string },
             ),
-      REJOIN: (_payload, meta) => rejoinControl.handleRejoinMessage(meta),
+      REJOIN: (payload, meta) =>
+        rejoinControl.handleRejoinMessage(payload as { state: unknown }, meta),
       MOVE: (payload, meta, origin) =>
         moveHandlers.handleMove(
           payload as { x: number; y: number; player: 1 | 2 },

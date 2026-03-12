@@ -2,10 +2,10 @@ import type { SessionDeps } from "../sessionTypes";
 
 export const createConnectionControl = (
   deps: SessionDeps,
-  hooks: { maybePromptRejoin: () => Promise<void> },
+  hooks: { maybeAutoRejoin: () => Promise<void> },
 ) => {
   const { state, notifier, fsm, pending } = deps;
-  const { maybePromptRejoin } = hooks;
+  const { maybeAutoRejoin } = hooks;
   let connected = false;
 
   return (connState: RTCPeerConnectionState) => {
@@ -17,7 +17,7 @@ export const createConnectionControl = (
       state.ready.clear();
       state.startedState.set(false);
       notifier.onConnection("[shell] datachannel connected");
-      void maybePromptRejoin();
+      void maybeAutoRejoin();
     }
     if (!nowConnected && connected) {
       connected = false;

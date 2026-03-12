@@ -1,9 +1,7 @@
-import type { ReadyPayload, RejectPayload, StartPayload, SessionMessageType } from "../../utils";
-import { createEnvelope } from "../net";
+import type { ReadyPayload, RejectPayload, StartPayload, SessionMessageType, WireEnvelope as Envelope } from "../../utils";
 import type { SessionState } from "../state/state";
 import type { ShellUi } from "../../ui/types";
 import type { SessionFsm } from "../state/fsm";
-import type { NetAdapter } from "../net";
 import type { Notifier } from "../ports/notifier";
 import type { PendingController } from "../state/pending";
 
@@ -15,17 +13,19 @@ export type LobbyHandlers = {
   handleReject: (payload: RejectPayload) => void;
 };
 
+type LobbyDeps = {
+  state: SessionState;
+  ui: ShellUi;
+  fsm: SessionFsm;
+  sid: string;
+  nextSeq: () => number;
+  notifier: Notifier;
+  pending: PendingController;
+  sendEnvelope: <T>(msg: Envelope<T>) => void;
+};
+
 export const createLobbyHandlers = (
-  deps: {
-    state: SessionState;
-    ui: ShellUi;
-    fsm: SessionFsm;
-    net: NetAdapter;
-    sid: string;
-    nextSeq: () => number;
-    notifier: Notifier;
-    pending: PendingController;
-  },
+  deps: LobbyDeps,
   hooks: {
     startMatch: (myColor: 1 | 2) => void;
     setLastStartSenderColor: (color: 1 | 2) => void;
@@ -34,7 +34,7 @@ export const createLobbyHandlers = (
     resetToLobby: () => void;
   },
 ): LobbyHandlers => {
-  const { state, ui, net, sid, nextSeq, notifier, pending, fsm } = deps;
+  const { state, ui, sid, nextSeq, notifier, pending, fsm, sendEnvelope } = deps;
   const { startMatch, setLastStartSenderColor, getLastStartSenderColor, canStart, resetToLobby } =
     hooks;
 
@@ -47,18 +47,16 @@ export const createLobbyHandlers = (
     if (!from) {
       return;
     }
-    net.send(
-      createEnvelope({
-        domain: "session",
-        type,
-        sid,
-        from,
-        seq: nextSeq(),
-        payload,
-        turn: meta?.turn,
-        stateHash: meta?.stateHash,
-      }),
-    );
+    sendEnvelope({
+      domain: "session",
+      type,
+      sid,
+      from,
+      seq: nextSeq(),
+      payload,
+      turn: meta?.turn,
+      stateHash: meta?.stateHash,
+    });
   };
 
   const sendReady = (ready: boolean) => sendSession("READY", { ready });

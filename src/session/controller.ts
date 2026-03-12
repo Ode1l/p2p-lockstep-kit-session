@@ -2,7 +2,7 @@
 // Responsibilities:
 // - Build core session components and connect their boundaries.
 // - Expose a minimal API to the shell layer.
-import { createNetClient, createEnvelope, type NetAdapter } from "./net";
+import { createNetClient, type NetAdapter } from "./net";
 import type { GameMove, IGamePlugin } from "../game/types";
 import type { ShellUi } from "../ui/types";
 import { createSessionState, type SessionState } from "./state/state";
@@ -20,6 +20,11 @@ import { createConnectionControl } from "./hooks/connection";
 import { createVoiceControl } from "./hooks/voice";
 import { createRejoinControl } from "./rejoin/control";
 import { createSessionFsm } from "./state/fsm";
+import {
+  resolveMessageDomain,
+  type MessageType,
+  type WireEnvelope as Envelope,
+} from "../utils";
 type PendingActionType = "undo" | "restart" | "rejoin";
 
 export type SessionOptions = {
@@ -48,6 +53,9 @@ export const createSessionController = (options: SessionOptions) => {
   let seq = 1;
   let lastStartSenderColor: 1 | 2 | null = null;
   let handleLocalMove: ((move: GameMove) => void) | null = null;
+  const sendEnvelope = <T>(msg: Envelope<T>) => {
+    net.send(JSON.stringify(msg));
+  };
 
   let state: SessionState | null = null;
 
@@ -91,11 +99,11 @@ export const createSessionController = (options: SessionOptions) => {
     state: sessionState,
     ui,
     fsm,
-    net,
     sid,
     nextSeq: () => seq++,
     notifier,
     pending,
+    sendEnvelope,
   };
   const pendingLabel: Record<PendingActionType, string> = {
     undo: "confirm undo",
@@ -182,16 +190,14 @@ export const createSessionController = (options: SessionOptions) => {
         if (!from) {
           return;
         }
-        net.send(
-          createEnvelope({
-            domain: "session",
-            type: "SYNC_STATE",
-            sid,
-            from,
-            seq: seq++,
-            payload: { state: sessionState.game.getSnapshot() },
-          }),
-        );
+        sendEnvelope({
+          domain: "session",
+          type: "SYNC_STATE",
+          sid,
+          from,
+          seq: seq++,
+          payload: { state: sessionState.game.getSnapshot() },
+        });
       },
       SYNC_STATE: (payload) => {
         sessionState.applySnapshot(payload as { state: unknown });
@@ -215,7 +221,26 @@ export const createSessionController = (options: SessionOptions) => {
   });
 
   const start = (startOptions?: { autoRegisterUrl?: string; autoConnectId?: string }) => {
-    net.onMessage((msg) => bus.handleMessage(msg));
+    const parseMessage = (raw: unknown) => {
+      try {
+        const data = typeof raw === "string" ? JSON.parse(raw) : raw;
+        const type = (data as { type: MessageType }).type as MessageType;
+        return {
+          ...(data as Envelope),
+          type,
+          domain: resolveMessageDomain({ type, domain: (data as Envelope).domain }),
+        } as Envelope;
+      } catch {
+        return null;
+      }
+    };
+
+    net.onMessage((raw) => {
+      const msg = parseMessage(raw);
+      if (msg) {
+        bus.handleMessage(msg);
+      }
+    });
     net.onConnectionState((connState) => onConnectionState(connState));
     flow.start(startOptions);
     sessionState.render();

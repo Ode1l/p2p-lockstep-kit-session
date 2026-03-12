@@ -1,5 +1,4 @@
-import type { UndoPayload } from "../../utils";
-import { createEnvelope, type NetAdapter } from "../../session/net";
+import type { UndoPayload, WireEnvelope as Envelope } from "../../utils";
 import type { SessionState } from "../../session/state/state";
 import type { ShellUi } from "../../ui/types";
 import type { SessionFsm } from "../../session/state/fsm";
@@ -8,13 +7,13 @@ import type { PendingController } from "../../session/state/pending";
 export const createUndoHandler = (deps: {
   state: SessionState;
   ui: ShellUi;
-  net: NetAdapter;
   sid: string;
   nextSeq: () => number;
   pending: PendingController;
   fsm: SessionFsm;
+  sendEnvelope: <T>(msg: Envelope<T>) => void;
 }) => {
-  const { state, ui, net, sid, nextSeq, pending, fsm } = deps;
+  const { state, ui, sid, nextSeq, pending, fsm, sendEnvelope } = deps;
 
   const sendSession = (
     type: "UNDO" | "APPROVE" | "REJECT",
@@ -25,18 +24,16 @@ export const createUndoHandler = (deps: {
     if (!from) {
       return;
     }
-    net.send(
-      createEnvelope({
-        domain: "session",
-        type,
-        sid,
-        from,
-        seq: nextSeq(),
-        payload,
-        turn: meta?.turn,
-        stateHash: meta?.stateHash,
-      }),
-    );
+    sendEnvelope({
+      domain: "session",
+      type,
+      sid,
+      from,
+      seq: nextSeq(),
+      payload,
+      turn: meta?.turn,
+      stateHash: meta?.stateHash,
+    });
   };
 
   const sendUndoRequest = (count: 1 | 2) => sendSession("UNDO", { count });

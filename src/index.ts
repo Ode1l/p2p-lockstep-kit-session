@@ -1,5 +1,5 @@
-export { createClient } from "./network";
-export type { Facade } from "./network";
+export { createClient } from "../p2p-lockstep-kit-network/network";
+export type { Facade } from "../p2p-lockstep-kit-network/network";
 
 export { createShell } from "./ui/shell";
 export type {

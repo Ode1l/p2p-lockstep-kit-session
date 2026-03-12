@@ -1,6 +1,5 @@
-import type { MovePayload, RejectPayload } from "../../utils";
+import type { MovePayload, RejectPayload, WireEnvelope as Envelope } from "../../utils";
 import type { GameMove, GameStatus } from "../types";
-import { createEnvelope, type NetAdapter } from "../../session/net";
 import { createMovePolicy } from "../rules";
 import type { SessionState } from "../../session/state/state";
 import type { Notifier } from "../../session/ports/notifier";
@@ -8,13 +7,13 @@ import type { SessionFsm } from "../../session/state/fsm";
 
 export const createMoveHandlers = (deps: {
   state: SessionState;
-  net: NetAdapter;
   sid: string;
   nextSeq: () => number;
   notifier: Notifier;
   fsm: SessionFsm;
+  sendEnvelope: <T>(msg: Envelope<T>) => void;
 }) => {
-  const { state, net, sid, nextSeq, notifier, fsm } = deps;
+  const { state, sid, nextSeq, notifier, fsm, sendEnvelope } = deps;
   const movePolicy = createMovePolicy({
     getStatus: state.getStatus,
     isStarted: state.startedState.is,
@@ -33,18 +32,16 @@ export const createMoveHandlers = (deps: {
     if (!from) {
       return;
     }
-    net.send(
-      createEnvelope({
-        domain: "session",
-        type,
-        sid,
-        from,
-        seq: nextSeq(),
-        payload,
-        turn: meta?.turn,
-        stateHash: meta?.stateHash,
-      }),
-    );
+    sendEnvelope({
+      domain: "session",
+      type,
+      sid,
+      from,
+      seq: nextSeq(),
+      payload,
+      turn: meta?.turn,
+      stateHash: meta?.stateHash,
+    });
   };
 
   const sendGameMove = (move: GameMove) => {
@@ -52,17 +49,15 @@ export const createMoveHandlers = (deps: {
     if (!from) {
       return;
     }
-    net.send(
-      createEnvelope({
-        domain: "game",
-        type: "MOVE",
-        from,
-        seq: nextSeq(),
-        turn: move.turn,
-        stateHash: state.game.getHash(),
-        payload: { x: move.x, y: move.y, player: move.player },
-      }),
-    );
+    sendEnvelope({
+      domain: "game",
+      type: "MOVE",
+      from,
+      seq: nextSeq(),
+      turn: move.turn,
+      stateHash: state.game.getHash(),
+      payload: { x: move.x, y: move.y, player: move.player },
+    });
   };
 
   const sendReject = (reason: string) => {

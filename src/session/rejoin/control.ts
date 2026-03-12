@@ -1,5 +1,4 @@
-import { createEnvelope, type NetAdapter } from "../net";
-import type { SyncStatePayload } from "../../utils";
+import type { SyncStatePayload, WireEnvelope as Envelope } from "../../utils";
 import type { SessionState } from "../state/state";
 import type { SessionFsm } from "../state/fsm";
 import type { PendingController } from "../state/pending";
@@ -12,15 +11,15 @@ export type RejoinControl = {
 export const createRejoinControl = (
   deps: {
     state: SessionState;
-    net: NetAdapter;
     sid: string;
     nextSeq: () => number;
     pending: PendingController;
     fsm: SessionFsm;
+    sendEnvelope: <T>(msg: Envelope<T>) => void;
   },
   hooks: { resetToLobby: () => void },
 ): RejoinControl => {
-  const { state, net, sid, nextSeq, pending, fsm } = deps;
+  const { state, sid, nextSeq, pending, fsm, sendEnvelope } = deps;
   const { resetToLobby } = hooks;
 
   const sendSession = (
@@ -32,18 +31,16 @@ export const createRejoinControl = (
     if (!from) {
       return;
     }
-    net.send(
-      createEnvelope({
-        domain: "session",
-        type,
-        sid,
-        from,
-        seq: nextSeq(),
-        payload,
-        turn: meta?.turn,
-        stateHash: meta?.stateHash,
-      }),
-    );
+    sendEnvelope({
+      domain: "session",
+      type,
+      sid,
+      from,
+      seq: nextSeq(),
+      payload,
+      turn: meta?.turn,
+      stateHash: meta?.stateHash,
+    });
   };
 
   const sendReject = (reason: string) => {

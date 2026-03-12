@@ -1,4 +1,4 @@
-import type { SyncStatePayload, WireEnvelope as Envelope } from "../../utils";
+import type { SyncStatePayload, Envelope } from "../../utils";
 import type { SessionState } from "../state/state";
 import type { SessionFsm } from "../state/fsm";
 import type { PendingController } from "../state/pending";

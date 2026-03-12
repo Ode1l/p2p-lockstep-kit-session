@@ -1,4 +1,4 @@
-import type { UndoPayload, WireEnvelope as Envelope } from "../../utils";
+import type { UndoPayload, Envelope } from "../../utils";
 import type { SessionState } from "../../session/state/state";
 import type { ShellUi } from "../../ui/types";
 import type { SessionFsm } from "../../session/state/fsm";

@@ -1,4 +1,4 @@
-import type { MovePayload, RejectPayload, WireEnvelope as Envelope } from "../../utils";
+import type { MovePayload, RejectPayload, Envelope } from "../../utils";
 import type { GameMove, GameStatus } from "../types";
 import { createMovePolicy } from "../rules";
 import type { SessionState } from "../../session/state/state";

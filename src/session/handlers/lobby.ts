@@ -1,4 +1,4 @@
-import type { ReadyPayload, RejectPayload, StartPayload, SessionMessageType, WireEnvelope as Envelope } from "../../utils";
+import type { ReadyPayload, RejectPayload, StartPayload, SessionMessageType, Envelope } from "../../utils";
 import type { SessionState } from "../state/state";
 import type { ShellUi } from "../../ui/types";
 import type { SessionFsm } from "../state/fsm";

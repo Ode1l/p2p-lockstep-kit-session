@@ -23,7 +23,7 @@ import { createSessionFsm } from "./state/fsm";
 import {
   resolveMessageDomain,
   type MessageType,
-  type WireEnvelope as Envelope,
+  type Envelope,
 } from "../utils";
 type PendingActionType = "undo" | "restart" | "rejoin";
 
@@ -54,7 +54,7 @@ export const createSessionController = (options: SessionOptions) => {
   let lastStartSenderColor: 1 | 2 | null = null;
   let handleLocalMove: ((move: GameMove) => void) | null = null;
   const sendEnvelope = <T>(msg: Envelope<T>) => {
-    net.send(JSON.stringify(msg));
+    net.send(msg);
   };
 
   let state: SessionState | null = null;

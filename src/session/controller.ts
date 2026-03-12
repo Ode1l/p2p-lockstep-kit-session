@@ -2,15 +2,15 @@
 // Responsibilities:
 // - Build core session components and connect their boundaries.
 // - Expose a minimal API to the shell layer.
-import { createNetClient, type NetAdapter } from "./net";
-import type { GameMove, IGamePlugin, ShellUi } from "../game/types";
+import { createNetClient, createEnvelope, type NetAdapter } from "./net";
+import type { GameMove, IGamePlugin } from "../game/types";
+import type { ShellUi } from "../ui/types";
 import { createSessionState } from "./state/state";
 import { createRegisterPolicy } from "./policy";
 import { createSessionFlow } from "./flow";
 import { consoleLogger, type Logger } from "../utils";
 import { createCommandBus } from "./commandRegistry";
 import { createDefaultMiddlewares, createFsmGuardMiddleware } from "./commandMiddleware";
-import { createMessageSender } from "./ports/sender.ts";
 import { createNotifier } from "./ports/notifier";
 import { createPendingState } from "./state/pending";
 import type { PendingActionType } from "./state/pending";
@@ -23,6 +23,7 @@ import { createApproveHandler } from "./handlers/approve";
 import { createRejectHandler } from "./handlers/reject";
 import { createRejoinHandler } from "./rejoin/handler";
 import { createConnectionControl } from "./hooks/connection";
+import { createVoiceControl } from "./hooks/voice";
 import { createRejoinChoiceControl } from "./rejoin/choice";
 import { createSessionFsm } from "./state/fsm";
 import type { SessionDeps } from "./sessionTypes";
@@ -77,15 +78,6 @@ export const createSessionController = (options: SessionOptions) => {
 
   const registerPolicy = createRegisterPolicy(options.retry);
 
-  const messageSender = createMessageSender({
-    sid,
-    net,
-    getStatus: state.getStatus,
-    getPeerId: state.peer.getId,
-    getHash: state.game.getHash,
-    getSnapshot: state.game.getSnapshot,
-    nextSeq: () => seq++,
-  });
   const notifier = createNotifier({
     logger,
     showNotice: ui.showNotice,
@@ -95,7 +87,9 @@ export const createSessionController = (options: SessionOptions) => {
     state,
     ui,
     fsm,
-    messageSender,
+    net,
+    sid,
+    nextSeq: () => seq++,
     notifier,
     pending,
   };
@@ -123,14 +117,13 @@ export const createSessionController = (options: SessionOptions) => {
   });
   const moveHandlers = createMoveHandlers(handlerDeps);
   const handleReady = createReadyHandler(handlerDeps);
-  const handleStart = createStartHandler({
+  const handleStart = createStartHandler(handlerDeps, {
     startMatch: state.startMatch,
     setLastStartSenderColor: (color) => {
       lastStartSenderColor = color;
     },
     getLastStartSenderColor: () => lastStartSenderColor,
     canStart: () => !!state.peer.getId() && state.ready.get().peer,
-    sendStart: (payload) => messageSender.sendStart(payload),
   });
   const handleUndo = createUndoHandler(handlerDeps);
   const handleRestart = createRestartHandler(handlerDeps, {
@@ -159,6 +152,8 @@ export const createSessionController = (options: SessionOptions) => {
     ...createDefaultMiddlewares(logger),
   ];
 
+  const voiceControl = createVoiceControl({ net, ui, logger });
+
   const bus = createCommandBus({
     sid,
     handlers: {
@@ -183,7 +178,22 @@ export const createSessionController = (options: SessionOptions) => {
           meta,
           origin,
         ),
-      SYNC_REQUEST: () => messageSender.sendSyncState(),
+      SYNC_REQUEST: () => {
+        const from = state.peer.getId();
+        if (!from) {
+          return;
+        }
+        net.send(
+          createEnvelope({
+            domain: "session",
+            type: "SYNC_STATE",
+            sid,
+            from,
+            seq: seq++,
+            payload: { state: state.game.getSnapshot() },
+          }),
+        );
+      },
       SYNC_STATE: (payload) => state.applySnapshot(payload as { state: unknown }),
     },
     afterHandle: state.render,
@@ -217,5 +227,6 @@ export const createSessionController = (options: SessionOptions) => {
     onUndo: () => bus.emit("UNDO"),
     onRestart: () => bus.emit("RESTART"),
     onStart: () => bus.emit("START"),
+    onToggleVoice: () => voiceControl.toggle(),
   };
 };

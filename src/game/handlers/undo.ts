@@ -1,8 +1,43 @@
 import type { UndoPayload } from "../../utils";
 import type { SessionDeps } from "../../session/sessionTypes";
+import { createEnvelope } from "../../session/net";
 
 export const createUndoHandler = (deps: SessionDeps) => {
-  const { state, ui, messageSender, pending } = deps;
+  const { state, ui, net, sid, nextSeq, pending } = deps;
+
+  const sendSession = (
+    type: "UNDO" | "APPROVE" | "REJECT",
+    payload?: unknown,
+    meta?: { turn?: number; stateHash?: string },
+  ) => {
+    const from = state.peer.getId();
+    if (!from) {
+      return;
+    }
+    net.send(
+      createEnvelope({
+        domain: "session",
+        type,
+        sid,
+        from,
+        seq: nextSeq(),
+        payload,
+        turn: meta?.turn,
+        stateHash: meta?.stateHash,
+      }),
+    );
+  };
+
+  const sendUndoRequest = (count: 1 | 2) => sendSession("UNDO", { count });
+  const sendApprove = () => sendSession("APPROVE");
+  const sendReject = (reason: string) => {
+    const status = state.getStatus();
+    sendSession(
+      "REJECT",
+      { action: "undo", reason },
+      { turn: status.turn, stateHash: state.game.getHash() },
+    );
+  };
 
   return async (payload: { count?: UndoPayload["count"] }, origin: "local" | "remote") => {
     if (origin === "local") {
@@ -16,29 +51,29 @@ export const createUndoHandler = (deps: SessionDeps) => {
         return;
       }
       const wait = pending.begin("undo", { undoCount: count });
-      messageSender.sendUndo(count);
+      sendUndoRequest(count);
       await wait;
       return;
     }
 
     if (!state.startedState.is()) {
-      messageSender.sendReject("undo", "not-started");
+      sendReject("not-started");
       return;
     }
     if (!payload.count) {
-      messageSender.sendReject("undo", "invalid");
+      sendReject("invalid");
       return;
     }
     if (payload.count === 2 && state.history.length() < 2) {
-      messageSender.sendReject("undo", "no-history");
+      sendReject("no-history");
       return;
     }
     const approved = await (ui.promptUndo?.() ?? Promise.resolve(false));
     if (approved) {
-      messageSender.sendApprove();
+      sendApprove();
       state.applyUndoCount(payload.count);
     } else {
-      messageSender.sendReject("undo", "rejected");
+      sendReject("rejected");
     }
   };
 };

@@ -14,5 +14,4 @@ export type {
   GameStatus,
   IRuleGuard,
   IRuleGuardResult,
-  ShellUi,
 } from "../game/types";

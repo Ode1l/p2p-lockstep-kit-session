@@ -1,6 +1,7 @@
 import QRCode from 'qrcode';
 import type { PanelRefs } from '../../shell/ui/panel';
 import type { ShellUiBundle } from '../../shell/ui/shellUi';
+import type { VoiceUiState } from '../../types';
 import { createDesktopStyles } from './styles';
 
 const createPanelRefs = (): { refs: PanelRefs; bindEvents: (events: {
@@ -206,7 +207,11 @@ export const createDesktopShellUi = (options?: { defaultSignalUrl?: string }): S
   restartBtn.className = "desktop-shell__btn secondary";
   restartBtn.textContent = "Restart";
   restartBtn.dataset.pending = "false";
-  controls.append(readyBtn, startBtn, undoBtn, restartBtn);
+  const voiceBtn = document.createElement("button");
+  voiceBtn.className = "desktop-shell__btn secondary";
+  voiceBtn.textContent = "Voice";
+  voiceBtn.dataset.state = "idle";
+  controls.append(readyBtn, startBtn, undoBtn, restartBtn, voiceBtn);
 
   const logPanel = document.createElement("div");
   logPanel.className = "desktop-shell__log hidden";
@@ -214,7 +219,12 @@ export const createDesktopShellUi = (options?: { defaultSignalUrl?: string }): S
   logBody.className = "desktop-shell__log-body";
   logPanel.append(logBody);
 
-  panelRefs.root.append(statusGrid, controls, noticeBar, logPanel);
+  const remoteAudio = document.createElement("audio");
+  remoteAudio.autoplay = true;
+  remoteAudio.setAttribute("playsinline", "true");
+  remoteAudio.style.display = "none";
+
+  panelRefs.root.append(statusGrid, controls, noticeBar, logPanel, remoteAudio);
   container.append(panelRefs.root, boardWrap);
 
   if (options?.defaultSignalUrl) {
@@ -224,6 +234,51 @@ export const createDesktopShellUi = (options?: { defaultSignalUrl?: string }): S
   const modal = createModal();
   let lastPeerId = "";
   let lastMyColor: 1 | 2 | null = null;
+  let voiceActionBound = false;
+  let voiceAvailable = false;
+
+  const refreshVoiceButton = () => {
+    const canShow = voiceActionBound && voiceAvailable;
+    voiceBtn.style.display = canShow ? "inline-flex" : "none";
+    const pending = voiceBtn.dataset.state === "starting";
+    voiceBtn.disabled = !canShow || pending;
+  };
+
+  const setVoiceState = (state: VoiceUiState) => {
+    const baseLabel =
+      state.status === "active"
+        ? "Voice On"
+        : state.status === "starting"
+          ? "Voice..."
+          : state.status === "error"
+            ? "Voice Error"
+            : "Voice Off";
+    voiceBtn.dataset.state = state.status;
+    voiceBtn.dataset.remote = state.remote ? "true" : "false";
+    voiceBtn.textContent = state.remote ? `${baseLabel} • Peer` : baseLabel;
+    voiceBtn.classList.toggle("primary", state.status === "active");
+    voiceBtn.classList.toggle("secondary", state.status !== "active");
+    refreshVoiceButton();
+  };
+
+  const setRemoteVoiceStream = (stream: MediaStream | null) => {
+    if (remoteAudio.srcObject === stream) {
+      return;
+    }
+    remoteAudio.srcObject = stream;
+    if (stream) {
+      const playPromise = remoteAudio.play();
+      if (playPromise) {
+        void playPromise.catch(() => {
+          // Autoplay can be blocked; button reflects remote audio.
+        });
+      }
+      return;
+    }
+    remoteAudio.pause();
+  };
+
+  refreshVoiceButton();
 
   const updateQr = async () => {
     const peerId = lastPeerId;
@@ -292,6 +347,8 @@ export const createDesktopShellUi = (options?: { defaultSignalUrl?: string }): S
     const restartPending = restartBtn.dataset.pending === "true";
     restartBtn.style.display = info.started ? "inline-flex" : "none";
     restartBtn.disabled = !info.connected || !info.started || restartPending;
+    voiceAvailable = info.connected;
+    refreshVoiceButton();
     void updateQr();
   };
 
@@ -426,6 +483,13 @@ export const createDesktopShellUi = (options?: { defaultSignalUrl?: string }): S
             restartBtn.dataset.pending = "false";
           }
         });
+        if (events.onToggleVoice) {
+          voiceActionBound = true;
+          refreshVoiceButton();
+          voiceBtn.addEventListener("click", async () => {
+            await events.onToggleVoice?.();
+          });
+        }
       },
     },
     updatePanel,
@@ -448,5 +512,7 @@ export const createDesktopShellUi = (options?: { defaultSignalUrl?: string }): S
       noticeBar.textContent = winner === lastMyColor ? 'You win' : 'You lose';
     },
     showNotice,
+    setVoiceState,
+    setRemoteVoiceStream,
   };
 };

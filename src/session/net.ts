@@ -2,7 +2,7 @@
 // Responsibilities:
 // - Translate raw messages into envelopes for the session router.
 // - Expose register/connect/send/disconnect and connection state hooks.
-import { createClient } from "../../p2p-lockstep-kit-network/network";
+import { createClient } from "../network";
 import {
   resolveMessageDomain,
   type MessageType,
@@ -21,6 +21,9 @@ export type NetAdapter = {
     iceConnectionState: RTCIceConnectionState;
     signalingState: RTCSignalingState;
   };
+  startMedia: (stream: MediaStream) => void;
+  stopMedia: () => void;
+  onRemoteStream: (handler: (stream: MediaStream | null) => void) => void;
 };
 
 export const createNetClient = (): NetAdapter => {
@@ -55,6 +58,9 @@ export const createNetClient = (): NetAdapter => {
     onMessage,
     onConnectionState: client.onConnectionState,
     state: client.pcState,
+    startMedia: client.startMedia,
+    stopMedia: client.stopMedia,
+    onRemoteStream: client.onRemoteStream,
   };
 };
 

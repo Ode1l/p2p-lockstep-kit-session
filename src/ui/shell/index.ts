@@ -7,5 +7,5 @@ export type {
   GameStatus,
   IRuleGuard,
   IRuleGuardResult,
-  ShellUi,
 } from "../../session";
+export type { ShellUi, VoiceUiState } from "../types";

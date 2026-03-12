@@ -1,4 +1,5 @@
 import type { SessionDeps } from "../sessionTypes";
+import { createEnvelope } from "../net";
 
 export const createApproveHandler = (
   deps: SessionDeps,
@@ -6,7 +7,7 @@ export const createApproveHandler = (
     resetToLobby: () => void;
   },
 ) => {
-  const { state, messageSender, fsm, pending } = deps;
+  const { state, net, sid, nextSeq, fsm, pending } = deps;
   const { resetToLobby } = hooks;
 
   return () => {
@@ -23,7 +24,19 @@ export const createApproveHandler = (
       return;
     }
     if (current === "rejoin") {
-      messageSender.sendSyncState();
+      const from = state.peer.getId();
+      if (from) {
+        net.send(
+          createEnvelope({
+            domain: "session",
+            type: "SYNC_STATE",
+            sid,
+            from,
+            seq: nextSeq(),
+            payload: { state: state.game.getSnapshot() },
+          }),
+        );
+      }
       state.startedState.set(true);
       state.ready.clear();
       fsm.onMatchStart("rejoin-approve");

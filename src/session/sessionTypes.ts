@@ -1,7 +1,9 @@
 import type { SyncStatePayload } from "../utils";
-import type { GameMove, GameStatus, IGameSession, ShellUi } from "../game/types";
+import type { GameMove, GameStatus, IGameSession } from "../game/types";
+import type { ShellUi } from "../ui/types";
 import type { PendingActionType, PendingResult } from "./state/pending";
 import type { SessionFsm } from "./state/fsm";
+import type { NetAdapter } from "./net";
 
 export type SessionState = {
   game: IGameSession;
@@ -53,18 +55,9 @@ export type SessionDeps = {
   state: SessionState;
   ui: ShellUi;
   fsm: SessionFsm;
-  messageSender: {
-    sendSyncRequest: () => void;
-    sendSyncState: () => void;
-    sendMove: (move: GameMove) => void;
-    sendReject: (action: "move" | "undo" | "rejoin" | "restart", reason: string, stateHash?: string) => void;
-    sendApprove: () => void;
-    sendReady: (ready: boolean) => void;
-    sendStart: (payload: { senderColor: 1 | 2; receiverColor: 1 | 2; firstPlayer: 1 | 2 }) => void;
-    sendUndo: (count: 1 | 2) => void;
-    sendRestart: () => void;
-    sendRejoin: (turn: number, cacheHash: string) => void;
-  };
+  net: NetAdapter;
+  sid: string;
+  nextSeq: () => number;
   notifier: {
     onRejectNotice: (message: string) => void;
     onConnection: (message: string) => void;

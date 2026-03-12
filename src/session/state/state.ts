@@ -10,8 +10,8 @@ import type {
   GameStatus,
   IRuleGuard,
   IRuleGuardResult,
-  ShellUi,
 } from "../../game/types";
+import type { ShellUi } from "../../ui/types";
 import type { Logger, SyncStatePayload } from "../../utils";
 
 type SessionStateHooks = {

@@ -1,15 +1,52 @@
 import type { SessionDeps } from "../sessionTypes";
+import { createEnvelope } from "../net";
 
 export const createRejoinHandler = (
   deps: SessionDeps,
   hooks: { resumeTTLms: number; resetToLobby: () => void },
 ) => {
-  const { state, ui, messageSender, fsm } = deps;
+  const { state, ui, net, sid, nextSeq, fsm } = deps;
   const { resumeTTLms, resetToLobby } = hooks;
+
+  const sendReject = (reason: string) => {
+    const from = state.peer.getId();
+    if (!from) {
+      return;
+    }
+    const status = state.getStatus();
+    net.send(
+      createEnvelope({
+        domain: "session",
+        type: "REJECT",
+        sid,
+        from,
+        seq: nextSeq(),
+        payload: { action: "rejoin", reason },
+        turn: status.turn,
+        stateHash: state.game.getHash(),
+      }),
+    );
+  };
+
+  const sendApprove = () => {
+    const from = state.peer.getId();
+    if (!from) {
+      return;
+    }
+    net.send(
+      createEnvelope({
+        domain: "session",
+        type: "APPROVE",
+        sid,
+        from,
+        seq: nextSeq(),
+      }),
+    );
+  };
 
   return async (meta: { turn?: number; stateHash?: string }) => {
     if (meta.turn === undefined) {
-      messageSender.sendReject("rejoin", "cache-mismatch");
+      sendReject("cache-mismatch");
       resetToLobby();
       return;
     }
@@ -17,18 +54,18 @@ export const createRejoinHandler = (
     const canResume =
       !!cacheHash && state.canRestore({ cacheHash, turn: meta.turn }, resumeTTLms);
     if (!canResume) {
-      messageSender.sendReject("rejoin", "cache-mismatch");
+      sendReject("cache-mismatch");
       resetToLobby();
       return;
     }
     const approved = await (ui.promptRejoinApprove?.() ?? Promise.resolve(false));
     if (approved) {
-      messageSender.sendApprove();
+      sendApprove();
       state.startedState.set(true);
       state.ready.clear();
       fsm.onMatchStart("rejoin-approved");
     } else {
-      messageSender.sendReject("rejoin", "rejected");
+      sendReject("rejected");
       resetToLobby();
     }
     state.render();

@@ -1,8 +1,26 @@
 import type { ReadyPayload } from "../../utils";
 import type { SessionDeps } from "../sessionTypes";
+import { createEnvelope } from "../net";
 
 export const createReadyHandler = (deps: SessionDeps) => {
-  const { state, messageSender } = deps;
+  const { state, net, sid, nextSeq } = deps;
+
+  const sendReady = (ready: boolean) => {
+    const from = state.peer.getId();
+    if (!from) {
+      return;
+    }
+    net.send(
+      createEnvelope({
+        domain: "session",
+        type: "READY",
+        sid,
+        from,
+        seq: nextSeq(),
+        payload: { ready },
+      }),
+    );
+  };
 
   return (payload: ReadyPayload, origin: "local" | "remote") => {
     if (origin === "local") {
@@ -11,7 +29,7 @@ export const createReadyHandler = (deps: SessionDeps) => {
       }
       state.ready.setSelf(payload.ready);
       state.startedState.set(false);
-      messageSender.sendReady(payload.ready);
+      sendReady(payload.ready);
       state.render();
       return;
     }

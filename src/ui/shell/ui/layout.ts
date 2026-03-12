@@ -21,12 +21,14 @@ export type ShellLayout = {
   startBtn: HTMLButtonElement;
   undoBtn: HTMLButtonElement;
   restartBtn: HTMLButtonElement;
+  voiceBtn: HTMLButtonElement;
   requestText: HTMLSpanElement;
   requestYes: HTMLButtonElement;
   requestNo: HTMLButtonElement;
   winnerText: HTMLDivElement;
   winnerOk: HTMLButtonElement;
   startOverlay: HTMLDivElement;
+  remoteAudio: HTMLAudioElement;
 };
 
 export const createShellLayout = (panel: { refs: PanelRefs }): ShellLayout => {
@@ -78,12 +80,20 @@ export const createShellLayout = (panel: { refs: PanelRefs }): ShellLayout => {
     <button id="startBtn" class="btn btn-primary">Start</button>
     <button id="undoBtn" class="btn btn-ghost">Undo</button>
     <button id="restartBtn" class="btn btn-ghost">Restart</button>
+    <button id="voiceBtn" class="btn btn-ghost" data-state="idle">Voice</button>
   `;
 
   boardColumn.append(boardWrap, statusRow, actionsRow);
   container.append(panel.refs.root, boardColumn);
   document.body.append(requestBar);
   document.body.append(winnerModal);
+
+  const remoteAudio = document.createElement("audio");
+  remoteAudio.autoplay = true;
+  remoteAudio.setAttribute("playsinline", "true");
+  remoteAudio.controls = false;
+  remoteAudio.style.display = "none";
+  document.body.append(remoteAudio);
 
   statusRow.style.order = "1";
   boardWrap.style.order = "2";
@@ -129,6 +139,7 @@ export const createShellLayout = (panel: { refs: PanelRefs }): ShellLayout => {
   const startBtn = actionsRow.querySelector("#startBtn") as HTMLButtonElement;
   const undoBtn = actionsRow.querySelector("#undoBtn") as HTMLButtonElement;
   const restartBtn = actionsRow.querySelector("#restartBtn") as HTMLButtonElement;
+  const voiceBtn = actionsRow.querySelector("#voiceBtn") as HTMLButtonElement;
   const requestText = requestBar.querySelector("#requestText") as HTMLSpanElement;
   const requestYes = requestBar.querySelector("#requestYes") as HTMLButtonElement;
   const requestNo = requestBar.querySelector("#requestNo") as HTMLButtonElement;
@@ -156,11 +167,13 @@ export const createShellLayout = (panel: { refs: PanelRefs }): ShellLayout => {
     startBtn,
     undoBtn,
     restartBtn,
+    voiceBtn,
     requestText,
     requestYes,
     requestNo,
     winnerText,
     winnerOk,
     startOverlay,
+    remoteAudio,
   };
 };

@@ -3,6 +3,7 @@ import { createPanel } from "./panel";
 import { createStyles } from "./styles";
 import { createShellLayout } from "./layout";
 import { createShellRequests } from "./requests";
+import type { VoiceUiState } from "../../types";
 
 type PanelInfo = {
   peerId: string;
@@ -29,6 +30,7 @@ export type ShellUiBundle = {
       onStart: () => Promise<void> | void;
       onUndo: () => Promise<void> | void;
       onRestart: () => Promise<void> | void;
+      onToggleVoice?: () => Promise<void> | void;
     }) => void;
   };
   updatePanel: (info: PanelInfo) => void;
@@ -42,6 +44,8 @@ export type ShellUiBundle = {
   showStart: () => void;
   showWinner: (winner: 0 | 1 | 2) => void;
   showNotice: (message: string) => void;
+  setVoiceState: (state: VoiceUiState) => void;
+  setRemoteVoiceStream: (stream: MediaStream | null) => void;
 };
 
 export const createShellUi = (options?: { defaultSignalUrl?: string }): ShellUiBundle => {
@@ -72,10 +76,57 @@ export const createShellUi = (options?: { defaultSignalUrl?: string }): ShellUiB
     restartBtn,
     logPanel,
     logBody,
+    voiceBtn,
+    remoteAudio,
   } = layout;
 
   let lastPeerId = "";
   let lastMyColor: 1 | 2 | null = null;
+  let voiceActionBound = false;
+  let voiceAvailable = false;
+
+  const refreshVoiceButton = () => {
+    const canShow = voiceActionBound && voiceAvailable;
+    voiceBtn.style.display = canShow ? "inline-flex" : "none";
+    const pending = voiceBtn.dataset.state === "starting";
+    voiceBtn.disabled = !canShow || pending;
+  };
+
+  const setVoiceState = (state: VoiceUiState) => {
+    const baseLabel =
+      state.status === "active"
+        ? "Voice On"
+        : state.status === "starting"
+          ? "Voice..."
+          : state.status === "error"
+            ? "Voice Error"
+            : "Voice Off";
+    voiceBtn.dataset.state = state.status;
+    voiceBtn.dataset.remote = state.remote ? "true" : "false";
+    voiceBtn.textContent = state.remote ? `${baseLabel} • Peer` : baseLabel;
+    voiceBtn.classList.toggle("btn-primary", state.status === "active");
+    voiceBtn.classList.toggle("btn-ghost", state.status !== "active");
+    refreshVoiceButton();
+  };
+
+  const setRemoteVoiceStream = (stream: MediaStream | null) => {
+    if (remoteAudio.srcObject === stream) {
+      return;
+    }
+    remoteAudio.srcObject = stream;
+    if (stream) {
+      const playPromise = remoteAudio.play();
+      if (playPromise) {
+        void playPromise.catch(() => {
+          // Autoplay may be blocked; button state still indicates remote audio.
+        });
+      }
+      return;
+    }
+    remoteAudio.pause();
+  };
+
+  refreshVoiceButton();
 
   const buildShareUrl = (peerId: string, signalUrl: string) => {
     const url = new URL(window.location.href);
@@ -183,6 +234,8 @@ export const createShellUi = (options?: { defaultSignalUrl?: string }): ShellUiB
     const restartPending = restartBtn.dataset.pending === "true";
     restartBtn.style.display = info.started ? "inline-flex" : "none";
     restartBtn.disabled = !info.connected || !info.started || restartPending;
+    voiceAvailable = info.connected;
+    refreshVoiceButton();
     void updateQr();
   };
 
@@ -326,6 +379,13 @@ export const createShellUi = (options?: { defaultSignalUrl?: string }): ShellUiB
             restartBtn.dataset.pending = "false";
           }
         });
+        if (events.onToggleVoice) {
+          voiceActionBound = true;
+          refreshVoiceButton();
+          voiceBtn.addEventListener("click", async () => {
+            await events.onToggleVoice?.();
+          });
+        }
       },
     },
     updatePanel,
@@ -346,5 +406,7 @@ export const createShellUi = (options?: { defaultSignalUrl?: string }): ShellUiB
     },
     showWinner: (winner) => showWinner(winner, lastMyColor),
     showNotice,
+    setVoiceState,
+    setRemoteVoiceStream,
   };
 };

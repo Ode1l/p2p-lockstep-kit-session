@@ -1,5 +1,5 @@
 import type { NetAdapter } from "./net";
-import type { ShellUi } from "../game/types";
+import type { ShellUi } from "../ui/types";
 import type { Logger } from '../utils';
 import type { RegisterPolicy } from "./policy";
 

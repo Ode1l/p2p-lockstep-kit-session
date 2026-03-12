@@ -3,7 +3,7 @@ import type { SessionDeps } from "../../session/sessionTypes";
 import { createEnvelope } from "../../session/net";
 
 export const createUndoHandler = (deps: SessionDeps) => {
-  const { state, ui, net, sid, nextSeq, pending } = deps;
+  const { state, ui, net, sid, nextSeq, pending, fsm } = deps;
 
   const sendSession = (
     type: "UNDO" | "APPROVE" | "REJECT",
@@ -51,6 +51,7 @@ export const createUndoHandler = (deps: SessionDeps) => {
         return;
       }
       const wait = pending.begin("undo", { undoCount: count });
+      fsm.onAwaitApproval();
       sendUndoRequest(count);
       await wait;
       return;
@@ -75,5 +76,6 @@ export const createUndoHandler = (deps: SessionDeps) => {
     } else {
       sendReject("rejected");
     }
+    fsm.onApprovalResolved();
   };
 };

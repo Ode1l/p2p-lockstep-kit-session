@@ -20,7 +20,7 @@ export const createLobbyHandlers = (
     resetToLobby: () => void;
   },
 ): LobbyHandlers => {
-  const { state, ui, net, sid, nextSeq, notifier, pending } = deps;
+  const { state, ui, net, sid, nextSeq, notifier, pending, fsm } = deps;
   const { startMatch, setLastStartSenderColor, getLastStartSenderColor, canStart, resetToLobby } =
     hooks;
 
@@ -123,6 +123,7 @@ export const createLobbyHandlers = (
         state.applyUndoCount(count);
       }
       pending.resolve("undo");
+      fsm.onApprovalResolved();
       return;
     }
     if (current === "rejoin") {
@@ -142,6 +143,7 @@ export const createLobbyHandlers = (
     if (payload.action === "undo") {
       notifier.onRejectNotice("Undo rejected");
       pending.reject("undo", payload.reason);
+      fsm.onApprovalResolved();
       return;
     }
     if (payload.action === "rejoin") {

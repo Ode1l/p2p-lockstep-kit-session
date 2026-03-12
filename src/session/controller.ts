@@ -21,7 +21,7 @@ import { createConnectionControl } from "./hooks/connection";
 import { createVoiceControl } from "./hooks/voice";
 import { createRejoinControl } from "./rejoin/control";
 import { createSessionFsm } from "./state/fsm";
-import type { SessionDeps } from "./sessionTypes";
+import type { SessionDeps, SessionState } from "./sessionTypes";
 
 export type SessionOptions = {
   mount: HTMLElement;
@@ -50,9 +50,15 @@ export const createSessionController = (options: SessionOptions) => {
   let lastStartSenderColor: 1 | 2 | null = null;
   let handleLocalMove: ((move: GameMove) => void) | null = null;
 
-  const fsm = createSessionFsm({ logger });
+  let state: SessionState | null = null;
 
-  const state = createSessionState(
+  const fsm = createSessionFsm({
+    logger,
+    getStatus: () => state?.getStatus() ?? { turn: 0, currentPlayer: 1, winner: 0 },
+    getMyColor: () => state?.player.getMyColor() ?? null,
+  });
+
+  state = createSessionState(
     {
       sid,
       plugin,
@@ -70,6 +76,11 @@ export const createSessionController = (options: SessionOptions) => {
     },
   );
 
+  if (!state) {
+    throw new Error("Session state initialization failed");
+  }
+  const sessionState = state;
+
   const registerPolicy = createRegisterPolicy(options.retry);
 
   const notifier = createNotifier({
@@ -78,7 +89,7 @@ export const createSessionController = (options: SessionOptions) => {
     log: ui.log,
   });
   const handlerDeps: SessionDeps = {
-    state,
+    state: sessionState,
     ui,
     fsm,
     net,
@@ -111,17 +122,17 @@ export const createSessionController = (options: SessionOptions) => {
   });
   const moveHandlers = createMoveHandlers(handlerDeps);
   const lobbyHandlers = createLobbyHandlers(handlerDeps, {
-    startMatch: state.startMatch,
+    startMatch: sessionState.startMatch,
     setLastStartSenderColor: (color) => {
       lastStartSenderColor = color;
     },
     getLastStartSenderColor: () => lastStartSenderColor,
-    canStart: () => !!state.peer.getId() && state.ready.get().peer,
-    resetToLobby: state.resetToLobby,
+    canStart: () => !!sessionState.peer.getId() && sessionState.ready.get().peer,
+    resetToLobby: sessionState.resetToLobby,
   });
   const handleUndo = createUndoHandler(handlerDeps);
   const rejoinControl = createRejoinControl(handlerDeps, {
-    resetToLobby: state.resetToLobby,
+    resetToLobby: sessionState.resetToLobby,
   });
   const onConnectionState = createConnectionControl(handlerDeps, {
     maybeAutoRejoin: rejoinControl.maybeAutoRejoin,
@@ -168,7 +179,7 @@ export const createSessionController = (options: SessionOptions) => {
           origin,
         ),
       SYNC_REQUEST: () => {
-        const from = state.peer.getId();
+        const from = sessionState.peer.getId();
         if (!from) {
           return;
         }
@@ -179,13 +190,16 @@ export const createSessionController = (options: SessionOptions) => {
             sid,
             from,
             seq: seq++,
-            payload: { state: state.game.getSnapshot() },
+            payload: { state: sessionState.game.getSnapshot() },
           }),
         );
       },
-      SYNC_STATE: (payload) => state.applySnapshot(payload as { state: unknown }),
+      SYNC_STATE: (payload) => {
+        sessionState.applySnapshot(payload as { state: unknown });
+        fsm.refreshTurn();
+      },
     },
-    afterHandle: state.render,
+    afterHandle: sessionState.render,
     middlewares,
   });
   handleLocalMove = (move) => {
@@ -205,7 +219,7 @@ export const createSessionController = (options: SessionOptions) => {
     net.onMessage((msg) => bus.handleMessage(msg));
     net.onConnectionState((connState) => onConnectionState(connState));
     flow.start(startOptions);
-    state.render();
+    sessionState.render();
   };
 
   return {

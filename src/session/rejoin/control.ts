@@ -11,7 +11,7 @@ export const createRejoinControl = (
   deps: SessionDeps,
   hooks: { resetToLobby: () => void },
 ): RejoinControl => {
-  const { state, net, sid, nextSeq, pending } = deps;
+  const { state, net, sid, nextSeq, pending, fsm } = deps;
   const { resetToLobby } = hooks;
 
   const sendSession = (
@@ -61,6 +61,7 @@ export const createRejoinControl = (
     state.startedState.set(true);
     state.ready.clear();
     state.render();
+    fsm.refreshTurn();
   };
 
   const handleRejoinMessage = async (
@@ -81,12 +82,14 @@ export const createRejoinControl = (
       state.startedState.set(true);
       state.ready.clear();
       state.render();
+      fsm.refreshTurn();
       return;
     }
 
     if (localTurn >= meta.turn) {
       sendSyncState({ state: state.game.getSnapshot() });
       sendApprove();
+      fsm.refreshTurn();
       return;
     }
 

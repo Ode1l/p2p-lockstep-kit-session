@@ -5,7 +5,7 @@ import { createEnvelope } from "../../session/net";
 import { createMovePolicy } from "../rules";
 
 export const createMoveHandlers = (deps: SessionDeps) => {
-  const { state, net, sid, nextSeq, notifier } = deps;
+  const { state, net, sid, nextSeq, notifier, fsm } = deps;
   const movePolicy = createMovePolicy({
     getStatus: state.getStatus,
     isStarted: state.startedState.is,
@@ -124,6 +124,11 @@ export const createMoveHandlers = (deps: SessionDeps) => {
       return;
     }
     state.finalizeMove(prevStatus);
+    if (origin === "local") {
+      fsm.onLocalMove();
+    } else {
+      fsm.onRemoteMove();
+    }
     if (origin === "local") {
       sendGameMove(move);
     }

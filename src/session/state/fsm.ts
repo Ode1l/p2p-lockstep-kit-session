@@ -1,86 +1,42 @@
 import type { Logger, MessageType } from "../../utils";
 import type { CommandOrigin } from "../commandRegistry";
+import type { GameStatus } from "../../game/types";
 
-export type SessionPhase = "OFFLINE" | "WAITING" | "READY" | "GAMING";
+export type SessionPhase =
+  | "OFFLINE"
+  | "LOBBY"
+  | "READY"
+  | "MY_TURN"
+  | "PEER_TURN"
+  | "WAITING_APPROVAL";
 
 export type SessionFsm = {
   getPhase: () => SessionPhase;
   onConnected: () => void;
   onDisconnected: () => void;
-  onReadyStateChange: (ready: { self: boolean; peer: boolean }, reason?: string) => void;
-  onMatchStart: (reason?: string) => void;
-  onMatchEnd: (reason?: string) => void;
+  onReadyStateChange: (ready: { self: boolean; peer: boolean }) => void;
+  onMatchStart: () => void;
+  onMatchEnd: () => void;
+  onLocalMove: () => void;
+  onRemoteMove: () => void;
+  onAwaitApproval: () => void;
+  onApprovalResolved: () => void;
+  refreshTurn: () => void;
   guard: (type: MessageType, origin: CommandOrigin) => { ok: boolean; reason?: string };
 };
 
-type GuardRules = Partial<Record<MessageType, SessionPhase[] | "*">>;
+const matchPhases: SessionPhase[] = ["MY_TURN", "PEER_TURN", "WAITING_APPROVAL"];
 
-const WAITING_OR_READY: SessionPhase[] = ["WAITING", "READY"];
-const ACTIVE_STATES: SessionPhase[] = ["WAITING", "READY", "GAMING"];
-const IN_GAME_ONLY: SessionPhase[] = ["GAMING"];
-
-const LOCAL_RULES: GuardRules = {
-  READY: WAITING_OR_READY,
-  START: ["READY"],
-  UNDO: IN_GAME_ONLY,
-  RESTART: WAITING_OR_READY,
-  MOVE: IN_GAME_ONLY,
-};
-
-const REMOTE_RULES: GuardRules = {
-  READY: WAITING_OR_READY,
-  START: ["READY"],
-  UNDO: IN_GAME_ONLY,
-  MOVE: IN_GAME_ONLY,
-  RESTART: WAITING_OR_READY,
-  APPROVE: ACTIVE_STATES,
-  REJECT: ACTIVE_STATES,
-  REJOIN: ACTIVE_STATES,
-  SYNC_REQUEST: ACTIVE_STATES,
-  SYNC_STATE: ACTIVE_STATES,
-};
-
-const LOCAL_REASONS: Partial<Record<MessageType, string>> = {
-  READY: "Ready/Unready is only available while in the lobby.",
-  START: "Both players must be ready before starting.",
-  MOVE: "The game has not started yet.",
-  UNDO: "Undo can only be requested during a game.",
-  RESTART: "Restart is only available from the lobby.",
-};
-
-const defaultReasonForPhase = (phase: SessionPhase) => {
-  switch (phase) {
-    case "OFFLINE":
-      return "Connect to a peer first.";
-    case "GAMING":
-      return "A match is already in progress.";
-    default:
-      return "Action is not allowed right now.";
-  }
-};
-
-const isAllowed = (
-  rules: GuardRules,
-  type: MessageType,
-  phase: SessionPhase,
-): boolean => {
-  const allowed = rules[type];
-  if (!allowed) {
-    return true;
-  }
-  if (allowed === "*") {
-    return true;
-  }
-  return allowed.includes(phase);
-};
-
-export const createSessionFsm = (deps: { logger: Logger }): SessionFsm => {
-  const { logger } = deps;
+export const createSessionFsm = (deps: {
+  logger: Logger;
+  getStatus: () => GameStatus;
+  getMyColor: () => 1 | 2 | null;
+}): SessionFsm => {
+  const { logger, getStatus, getMyColor } = deps;
   let phase: SessionPhase = "OFFLINE";
   let connected = false;
-  let readyState: { self: boolean; peer: boolean } = { self: false, peer: false };
 
-  const transition = (next: SessionPhase, reason?: string) => {
+  const setPhase = (next: SessionPhase, reason?: string) => {
     if (phase === next) {
       return;
     }
@@ -88,63 +44,118 @@ export const createSessionFsm = (deps: { logger: Logger }): SessionFsm => {
     logger.info("[session:fsm] transition", { next, reason });
   };
 
-  const evaluateReady = (reason?: string, force = false) => {
-    if (!connected) {
+  const inMatch = () => matchPhases.includes(phase);
+
+  const computeTurnPhase = (reason?: string) => {
+    const myColor = getMyColor();
+    if (!myColor) {
+      setPhase(connected ? "LOBBY" : "OFFLINE", reason ?? "no-color");
       return;
     }
-    if (!force && phase === "GAMING") {
-      return;
-    }
-    const next = readyState.self && readyState.peer ? "READY" : "WAITING";
-    transition(next, reason);
+    const status = getStatus();
+    setPhase(status.currentPlayer === myColor ? "MY_TURN" : "PEER_TURN", reason ?? "turn");
   };
 
   const onConnected = () => {
     connected = true;
-    if (phase === "GAMING") {
+    if (inMatch()) {
       return;
     }
-    evaluateReady("connected");
+    setPhase("LOBBY", "connected");
   };
 
   const onDisconnected = () => {
     connected = false;
-    transition("OFFLINE", "disconnected");
+    setPhase("OFFLINE", "disconnected");
   };
 
-  const onReadyStateChange = (
-    ready: { self: boolean; peer: boolean },
-    reason?: string,
-  ) => {
-    readyState = ready;
-    evaluateReady(reason ?? "ready-change");
-  };
-
-  const onMatchStart = (reason?: string) => {
+  const onReadyStateChange = (ready: { self: boolean; peer: boolean }) => {
     if (!connected) {
-      connected = true;
-    }
-    transition("GAMING", reason ?? "match-start");
-  };
-
-  const onMatchEnd = (reason?: string) => {
-    if (!connected) {
-      transition("OFFLINE", reason ?? "match-end-offline");
       return;
     }
-    evaluateReady(reason ?? "match-end", true);
+    if (inMatch()) {
+      return;
+    }
+    setPhase(ready.self && ready.peer ? "READY" : "LOBBY", "ready-change");
+  };
+
+  const onMatchStart = () => {
+    connected = true;
+    computeTurnPhase("match-start");
+  };
+
+  const onMatchEnd = () => {
+    if (connected) {
+      setPhase("LOBBY", "match-end");
+    } else {
+      setPhase("OFFLINE", "match-end");
+    }
+  };
+
+  const onLocalMove = () => {
+    setPhase("PEER_TURN", "local-move");
+  };
+
+  const onRemoteMove = () => {
+    setPhase("MY_TURN", "remote-move");
+  };
+
+  const onAwaitApproval = () => {
+    setPhase("WAITING_APPROVAL", "await-approval");
+  };
+
+  const onApprovalResolved = () => {
+    computeTurnPhase("approval-resolved");
+  };
+
+  const refreshTurn = () => {
+    if (inMatch()) {
+      computeTurnPhase("refresh-turn");
+    }
   };
 
   const guard = (type: MessageType, origin: CommandOrigin) => {
-    const ok = isAllowed(origin === "local" ? LOCAL_RULES : REMOTE_RULES, type, phase);
-    if (ok) {
-      return { ok: true };
+    if (phase === "WAITING_APPROVAL" && origin === "local") {
+      return { ok: false, reason: "Awaiting approval." };
     }
-    const reason =
-      origin === "local"
-        ? LOCAL_REASONS[type] ?? defaultReasonForPhase(phase)
-        : `Dropping ${type} while session state is ${phase}`;
-    return { ok: false, reason };
+
+    const allowLobbyAction = phase === "LOBBY" || phase === "READY";
+
+    const check = (allowed: boolean, reason: string) => (allowed ? { ok: true } : { ok: false, reason });
+
+    if (origin === "local") {
+      switch (type) {
+        case "READY":
+          return check(allowLobbyAction, "Not in lobby.");
+        case "START":
+          return check(phase === "READY", "Both players must be ready.");
+        case "MOVE":
+          return check(phase === "MY_TURN", "Wait for your turn.");
+        case "UNDO":
+          return check(phase === "MY_TURN", "Undo only on your turn.");
+        case "RESTART":
+          return check(allowLobbyAction, "Restart only in lobby.");
+        case "SYNC_REQUEST":
+        case "SYNC_STATE":
+          return { ok: true };
+        default:
+          return { ok: true };
+      }
+    }
+
+    // Remote commands
+    switch (type) {
+      case "READY":
+      case "START":
+      case "RESTART":
+        return check(allowLobbyAction, "Remote action ignored during match.");
+      case "MOVE":
+        return check(phase === "PEER_TURN", "Out-of-turn move ignored.");
+      case "UNDO":
+        return check(phase === "PEER_TURN", "Undo only allowed on opponent turn.");
+      default:
+        return { ok: true };
+    }
   };
 
   return {
@@ -154,6 +165,11 @@ export const createSessionFsm = (deps: { logger: Logger }): SessionFsm => {
     onReadyStateChange,
     onMatchStart,
     onMatchEnd,
+    onLocalMove,
+    onRemoteMove,
+    onAwaitApproval,
+    onApprovalResolved,
+    refreshTurn,
     guard,
   };
 };

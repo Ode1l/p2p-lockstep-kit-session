@@ -1,9 +1,13 @@
-import type { Facade } from "../../p2p-lockstep-kit-network/network";
+import type { NetworkClient } from '../../p2p-lockstep-kit-network/network';
 import type { SessionMessage } from "../utils";
 import { CommandBus } from "./commandBus";
 
+export type NetAdapter = {
+  send: (message: SessionMessage) => void;
+};
+
 export const createNetClient = (
-  client: Facade,
+  client: NetworkClient,
   bus: CommandBus,
 ) => {
   client.onMessage((data) => {

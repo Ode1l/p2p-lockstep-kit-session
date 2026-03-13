@@ -82,10 +82,37 @@ const transitions: Transition[] = [
   { from: 'syncing', event: 'SYNC_COMPLETE', to: 'peer_turn' },
 ];
 
-export const nextSessionState = (
-  state: SessionState,
-  event: SessionEvent,
-): SessionState => {
+const nextState = (state: SessionState, event: SessionEvent): SessionState => {
   const hit = transitions.find((t) => t.from === state && t.event === event);
   return hit ? hit.to : state;
 };
+
+const hasNextState = (
+  state: SessionState,
+  action: SessionEvent): boolean => {
+  return !!transitions.find((t) => t.from === state && t.event === action);
+}
+
+export class SessionFsm {
+  private state: SessionState;
+
+  constructor(state: SessionState = "idle") {
+    this.state = state;
+  }
+
+  public getState(): SessionState {
+    return this.state;
+  }
+
+  public hasNextState(event: SessionEvent): boolean {
+    return hasNextState(this.state, event);
+  }
+
+  public getNextState(event: SessionEvent): SessionState {
+    return nextState(this.state, event);
+  }
+
+  public dispatch(action: SessionEvent) {
+     this.state = nextState(this.state, action);
+  }
+}

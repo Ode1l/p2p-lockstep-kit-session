@@ -1,51 +1,20 @@
-import { nextSessionState, type SessionEvent, type SessionState } from "./fsm";
+import { SessionFsm, SessionState, SessionEvent } from './fsm';
 
 export type TurnEntry = {
   turn: number;
-  player: "self" | "peer";
+  player: 'self' | 'peer';
   move?: any;
 };
 
-type PlayerLabel = "self" | "peer";
+export type PlayerLabel = "self" | "peer";
 
 export class State {
-  private self: SessionState;
-  private peer: SessionState;
+  private self = new SessionFsm('idle');
+  private peer = new SessionFsm('idle');
   private readonly history: TurnEntry[] = [];
 
-  public constructor() {
-    this.self = 'idle';
-    this.peer = 'idle';
-  }
-
-  public nextState(player: PlayerLabel, event: SessionEvent): SessionState {
-    return nextSessionState(this[player], event);
-  }
-
-  public getSelfState(): SessionState {
-    return this.self;
-  }
-
-  public getPeerState(): SessionState {
-    return this.peer;
-  }
-
-  public isReady(): boolean {
-    return this.self === 'ready';
-  }
-
-  public isPeerReady(): boolean {
-    return this.peer === 'ready';
-  }
-
-  public getCurrentPlayer(): PlayerLabel | null {
-    if (this.self === 'my_turn') {
-      return 'self';
-    }
-    if (this.self === 'peer_turn') {
-      return 'peer';
-    }
-    return null;
+  public getState(player: PlayerLabel): SessionState {
+    return this[player].getState();
   }
 
   public getTurnCount(): number {
@@ -64,14 +33,11 @@ export class State {
     return this.history.pop() ?? null;
   }
 
-  private getOtherPlayer(player: PlayerLabel): PlayerLabel {
-    return player === 'self' ? 'peer' : 'self';
+  public canAction(player: PlayerLabel, action: SessionEvent): boolean {
+    return this[player].hasNextState(action);
   }
 
-  public move(step: TurnEntry): void {
-    this.pushHistory(step);
-    const other = this.getOtherPlayer(step.player);
-    this[step.player] = nextSessionState(this[step.player], 'MOVE');
-    this[other] = nextSessionState(this[other], 'PEER_MOVE');
+  public dispatch(player: PlayerLabel, action: SessionEvent): void {
+    this[player].dispatch(action);
   }
 }

@@ -18,13 +18,8 @@ export class State {
     this.peer = 'idle';
   }
 
-  public nextState(event: SessionEvent): SessionState {
-    return nextSessionState(this.self, event);
-  }
-
-  public transitionPeer(event: SessionEvent): SessionState {
-    this.peer = nextSessionState(this.peer, event);
-    return this.peer;
+  public nextState(player: PlayerLabel, event: SessionEvent): SessionState {
+    return nextSessionState(this[player], event);
   }
 
   public getSelfState(): SessionState {
@@ -68,6 +63,7 @@ export class State {
   public popHistory(): TurnEntry | null {
     return this.history.pop() ?? null;
   }
+
   private getOtherPlayer(player: PlayerLabel): PlayerLabel {
     return player === 'self' ? 'peer' : 'self';
   }

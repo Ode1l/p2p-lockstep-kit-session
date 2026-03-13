@@ -6,13 +6,13 @@ export type CommandMessage<T = unknown> = {
   origin: CommandOrigin;
 };
 
-export type CommandListener = (message: CommandMessage) => void;
+export type CommandListener = (message: CommandMessage) => Promise<void> | void;
 
 export class CommandBus {
   private readonly listeners = new Set<CommandListener>();
 
-  public emit(type: string, payload?: unknown): void {
-    this.dispatch({ type, payload, origin: "local" });
+  public emit(type: string, payload?: unknown, origin: CommandOrigin = "local"): void {
+    this.dispatch({ type, payload, origin });
   }
 
   public on(listener: CommandListener): void {

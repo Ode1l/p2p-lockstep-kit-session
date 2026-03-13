@@ -10,6 +10,3 @@ export type Facade = {
   sync: () => Promise<void>;
   toggleVoice: () => Promise<void>;
 };
-
-export { State } from "./state/state";
-export { JusticeState } from "./state/justiceState";

@@ -9,46 +9,46 @@ export type TurnEntry = {
 type PlayerLabel = "self" | "peer";
 
 export class State {
-  private selfState: SessionState;
-  private peerState: SessionState;
+  private self: SessionState;
+  private peer: SessionState;
   private readonly history: TurnEntry[] = [];
 
   public constructor() {
-    this.selfState = "idle";
-    this.peerState = "idle";
+    this.self = 'idle';
+    this.peer = 'idle';
   }
 
   public nextState(event: SessionEvent): SessionState {
-    return nextSessionState(this.selfState, event);
+    return nextSessionState(this.self, event);
   }
 
   public transitionPeer(event: SessionEvent): SessionState {
-    this.peerState = nextSessionState(this.peerState, event);
-    return this.peerState;
+    this.peer = nextSessionState(this.peer, event);
+    return this.peer;
   }
 
   public getSelfState(): SessionState {
-    return this.selfState;
+    return this.self;
   }
 
   public getPeerState(): SessionState {
-    return this.peerState;
+    return this.peer;
   }
 
   public isReady(): boolean {
-    return this.selfState === "ready";
+    return this.self === 'ready';
   }
 
   public isPeerReady(): boolean {
-    return this.peerState === "ready";
+    return this.peer === 'ready';
   }
 
   public getCurrentPlayer(): PlayerLabel | null {
-    if (this.selfState === "my_turn") {
-      return "self";
+    if (this.self === 'my_turn') {
+      return 'self';
     }
-    if (this.selfState === "peer_turn") {
-      return "peer";
+    if (this.self === 'peer_turn') {
+      return 'peer';
     }
     return null;
   }
@@ -67,5 +67,15 @@ export class State {
 
   public popHistory(): TurnEntry | null {
     return this.history.pop() ?? null;
+  }
+  private getOtherPlayer(player: PlayerLabel): PlayerLabel {
+    return player === 'self' ? 'peer' : 'self';
+  }
+
+  public move(step: TurnEntry): void {
+    this.pushHistory(step);
+    const other = this.getOtherPlayer(step.player);
+    this[step.player] = nextSessionState(this[step.player], 'MOVE');
+    this[other] = nextSessionState(this[other], 'PEER_MOVE');
   }
 }

@@ -13,8 +13,12 @@ export class State {
   private peer = new SessionFsm('idle');
   private readonly history: TurnEntry[] = [];
 
+  private getMachine(player: PlayerLabel): SessionFsm {
+    return player === 'self' ? this.self : this.peer;
+  }
+
   public getState(player: PlayerLabel): SessionState {
-    return this[player].getState();
+    return this.getMachine(player).getState();
   }
 
   public getTurnCount(): number {
@@ -34,10 +38,10 @@ export class State {
   }
 
   public canAction(player: PlayerLabel, action: SessionEvent): boolean {
-    return this[player].hasNextState(action);
+    return this.getMachine(player).hasNextState(action);
   }
 
   public dispatch(player: PlayerLabel, action: SessionEvent): void {
-    this[player].dispatch(action);
+    this.getMachine(player).dispatch(action);
   }
 }

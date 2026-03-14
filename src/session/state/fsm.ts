@@ -13,8 +13,6 @@ export type SessionEvent =
   | "READY"
   | "START"
   | "PEER_START"
-  | "UNREADY"
-  | "PEER_UNREADY"
   | "MOVE"
   | "PEER_MOVE"
   | "REQUEST"
@@ -35,9 +33,9 @@ export type Transition = {
 const transitions: Transition[] = [
   // Lobby readiness
   { from: 'idle', event: 'READY', to: 'ready' },
-  { from: 'ready', event: 'UNREADY', to: 'idle' },
+  { from: 'ready', event: 'READY', to: 'idle' },
   { from: 'idle', event: 'PEER_READY', to: 'could_start' },
-  { from: 'could_start', event: 'PEER_UNREADY', to: 'idle' },
+  { from: 'could_start', event: 'PEER_READY', to: 'idle' },
 
   // Match start / turn assignment
   { from: 'ready', event: 'PEER_START', to: 'my_turn' },

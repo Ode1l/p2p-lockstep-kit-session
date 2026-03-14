@@ -1,17 +1,24 @@
-import type { CommandMessage } from "../commandBus";
+import { CommandListener, CommandMessage } from "../commandBus";
 import { getState, send } from "../context";
 
-const handleReady = (command: CommandMessage) => {
-  const sessionState = getState();
-  const ready = (command.payload as { ready?: boolean } | undefined)?.ready ?? true;
+export const ready: CommandListener = (command: CommandMessage) => {
+  const state = getState();
+
   if (command.origin === "local") {
-    sessionState.dispatch("self", ready ? "READY" : "UNREADY");
+    if (!state.canAction("self", "READY")) {
+      return;
+    }
+    state.dispatch("self", "READY");
     send({
-      type: 'READY',
-      payload: { ready },
-      from: '',
+      type: "READY",
+      from: "",
+      payload: { ready: true },
     });
     return;
   }
-  sessionState.dispatch("peer", ready ? "PEER_READY" : "PEER_UNREADY");
+
+  if (!state.canAction("peer", "PEER_READY")) {
+    return;
+  }
+  state.dispatch("peer", "PEER_READY");
 };

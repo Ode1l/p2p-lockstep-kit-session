@@ -1,6 +1,5 @@
 export type SessionMessageType =
   | "READY"
-  | "UNREADY"
   | "START"
   | "MOVE"
   | "UNDO"

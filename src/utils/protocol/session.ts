@@ -12,7 +12,7 @@ export type SessionMessageType =
 
 export type SessionMessage = {
   type: SessionMessageType;
-  from: string;
+  from?: string;
   seq?: number;
   sid?: string;
   turn?: number;

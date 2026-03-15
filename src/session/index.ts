@@ -5,13 +5,18 @@ import { createNetClient } from "./net";
 import { initializeContext } from "./context";
 import { registerHandlers } from "./handlers/register.ts";
 
-export const createSession = () => {
+export type SessionOptions = {
+  sid?: string;
+};
+
+export const createSession = (options: SessionOptions = {}) => {
   const bus = new CommandBus();
   const state = new State();
   const client = createClient();
   const net = createNetClient(client, bus);
+  const sid = options.sid;
 
-  initializeContext({ bus, state, net });
+  initializeContext({ bus, state, net, sid });
   registerHandlers(bus);
 
   return {

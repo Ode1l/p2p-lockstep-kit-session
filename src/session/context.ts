@@ -3,15 +3,17 @@ import type { CommandBus } from "./commandBus";
 import type { NetAdapter } from "./net";
 import type { SessionMessage } from "../utils";
 
-class SessionContextImpl {
+class SessionContext {
   private state: State;
   private bus: CommandBus;
   private net: NetAdapter;
+  private sid?: string;
 
-  constructor(deps: { state: State; bus: CommandBus; net: NetAdapter }) {
+  constructor(deps: { state: State; bus: CommandBus; net: NetAdapter; sid?: string }) {
     this.state = deps.state;
     this.bus = deps.bus;
     this.net = deps.net;
+    this.sid = deps.sid;
   }
 
   getState() {
@@ -25,12 +27,15 @@ class SessionContextImpl {
   getNet() {
     return this.net;
   }
+  getSid() {
+    return this.sid;
+  }
 }
 
-let instance: SessionContextImpl | null = null;
+let instance: SessionContext | null = null;
 
-export const initializeContext = (deps: { state: State; bus: CommandBus; net: NetAdapter }) => {
-  instance = new SessionContextImpl(deps);
+export const initializeContext = (deps: { state: State; bus: CommandBus; net: NetAdapter; sid?: string }) => {
+  instance = new SessionContext(deps);
 };
 
 const requireContext = () => {
@@ -42,4 +47,5 @@ const requireContext = () => {
 
 export const getState = () => requireContext().getState();
 export const getBus = () => requireContext().getBus();
+export const getSid = () => requireContext().getSid();
 export const send = (message: SessionMessage) => requireContext().getNet().send(message);

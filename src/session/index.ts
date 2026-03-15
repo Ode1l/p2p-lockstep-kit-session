@@ -14,7 +14,7 @@ export const createSession = (options: SessionOptions = {}) => {
   const state = new State();
   const client = createClient();
   const net = createNetClient(client, bus);
-  const sid = options.sid;
+  const { sid } = options;
 
   initializeContext({ bus, state, net, sid });
   registerHandlers(bus);

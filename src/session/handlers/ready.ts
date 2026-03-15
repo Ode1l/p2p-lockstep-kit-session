@@ -1,31 +1,37 @@
-import { CommandListener, CommandMessage } from "../commandBus";
-import { getState, send, getSid } from "../context";
+import { CommandListener } from "../commandBus";
+import { getState, send, getSid, getBus } from "../context";
 import type { SessionMessage } from "../../utils";
-import { getBus } from "../context";
 
-export const ready: CommandListener = (command: CommandMessage) => {
+export const ready: CommandListener = (command) => {
   const state = getState();
+  const bus = getBus();
+  const sid = getSid();
 
   if (command.origin === "local") {
-    if (!state.canAction("self", "READY")) {
+    const canSelf = state.canAction("self", "READY");
+    const canPeer = state.canAction("peer", "PEER_READY");
+    if (!canSelf || !canPeer) {
       return;
     }
     state.dispatch("self", "READY");
+    state.dispatch("peer", "PEER_READY");
+
     const message: SessionMessage = {
       type: "READY",
-      sid: getSid(),
+      from: "",
+      sid: sid,
+      payload: { ready: true },
     };
     send(message);
     return;
   }
 
+  if (sid && command.sid) {
+    bus.emit("REJECT", { reason: "sid-mismatch" }, "local");
+    return;
+  }
   if (!state.canAction("peer", "PEER_READY")) {
     return;
   }
-  const sid = getSid();
-  if (!sid || command.sid === sid) {
-    state.dispatch("peer", "PEER_READY");
-    return;
-  }
-  getBus().emit("REJECT", { reason: "sid-mismatch" }, "local");
+  state.dispatch("peer", "PEER_READY");
 };

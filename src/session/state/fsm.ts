@@ -17,13 +17,14 @@ export type SessionEvent =
   | "PEER_MOVE"
   | "UNDO"
   | "PEER_UNDO"
+  | "RESTART"
+  | "PEER_RESTART"
   | "APPROVE"
   | "REJECT"
   | "GAME_OVER"
   | "REJOIN"
   | "SYNC"
-  | "SYNC_COMPLETE"
-  | "RESTART";
+  | "SYNC_COMPLETE";
 
 export type Transition = {
   from: SessionState;
@@ -55,10 +56,14 @@ const transitions: Transition[] = [
   // Requests initiated by local player (undo/restart)
   { from: 'my_turn', event: 'UNDO', to: 'waiting_approval' },
   { from: 'peer_turn', event: 'UNDO', to: 'waiting_approval' },
+  { from: 'my_turn', event: 'RESTART', to: 'waiting_approval' },
+  { from: 'peer_turn', event: 'RESTART', to: 'waiting_approval' },
 
   // Requests coming from peer (we need to approve)
   { from: 'my_turn', event: 'PEER_UNDO', to: 'approving' },
   { from: 'peer_turn', event: 'PEER_UNDO', to: 'approving' },
+  { from: 'my_turn', event: 'PEER_RESTART', to: 'approving' },
+  { from: 'peer_turn', event: 'PEER_RESTART', to: 'approving' },
 
   // Approval outcomes when we were waiting
   { from: 'waiting_approval', event: 'APPROVE', to: 'my_turn' },

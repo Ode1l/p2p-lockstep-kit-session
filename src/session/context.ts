@@ -27,6 +27,7 @@ class SessionContext {
   getNet() {
     return this.net;
   }
+
   getSid() {
     return this.sid;
   }
@@ -34,7 +35,7 @@ class SessionContext {
 
 let instance: SessionContext | null = null;
 
-export const initializeContext = (deps: { state: State; bus: CommandBus; net: NetAdapter; sid?: string }) => {
+export const initializeContext = (deps: { state: State; bus: CommandBus; net: NetAdapter; sid?: string; game?: string }) => {
   instance = new SessionContext(deps);
 };
 

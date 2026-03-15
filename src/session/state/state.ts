@@ -8,6 +8,7 @@ export type TurnEntry = {
 
 export type PlayerLabel = "self" | "peer";
 export type TurnSide = "local" | "remote";
+export type TurnStateLabel = "my_turn" | "peer_turn";
 
 export class State {
   private self = new SessionFsm('idle');
@@ -45,19 +46,15 @@ export class State {
     return this.history.pop() ?? null;
   }
 
-  public canAction(player: PlayerLabel, action: SessionEvent, to?: SessionState): boolean {
-    return this.getPlayer(player).hasNextState(action, to);
+  public canAction(player: PlayerLabel, action: SessionEvent, to?: SessionState | TurnStateLabel): boolean {
+    return this.getPlayer(player).hasNextState(action, to); // todo resolve diff type of to
   }
 
-  public dispatch(player: PlayerLabel, action: SessionEvent, turn?: PlayerLabel): void {
-    if (turn) {
-      // todo
-      this.getPlayer(player).dispatch(action);
-    }
-    this.getPlayer(player).dispatch(action);
+  public dispatch(player: PlayerLabel, action: SessionEvent, to?: SessionState | TurnStateLabel): void {
+    this.getPlayer(player).dispatch(action, to); // todo resolve diff type of to
   }
 
-  public setPendingAction(action: "undo" | "restart") {
+  public setPendingAction(action: "undo" | "restart" | null) {
     this.pendingAction = action;
   }
 
@@ -79,5 +76,26 @@ export class State {
 
   public getResumeTurn(): PlayerLabel | null {
     return this.resumeTurn;
+  }
+
+  public getAvailableActions(player: PlayerLabel): SessionEvent[] {
+    const candidates: SessionEvent[] = [
+      "READY",
+      "PEER_READY",
+      "START",
+      "PEER_START",
+      "MOVE",
+      "PEER_MOVE",
+      "UNDO",
+      "PEER_UNDO",
+      "APPROVE",
+      "REJECT",
+      "GAME_OVER",
+      "REJOIN",
+      "SYNC",
+      "SYNC_COMPLETE",
+      "RESTART",
+    ];
+    return candidates.filter((action) => this.canAction(player, action));
   }
 }

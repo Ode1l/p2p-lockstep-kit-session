@@ -4,15 +4,15 @@ import { getState, send } from "../context";
 export const restart: CommandListener = (command: CommandMessage) => {
   const state = getState();
   if (command.origin === "local") {
-    if (!state.canAction("self", "REQUEST")) {
+    if (!state.canAction("self", "RESTART")) {
       return;
     }
-    state.dispatch("self", "REQUEST");
+    state.dispatch('self', 'RESTART');
     send({ type: "RESTART", payload: command.payload, from: "" });
     return;
   }
-  if (!state.canAction("peer", "REQUEST")) {
+  if (!state.canAction('peer', 'RESTART')) {
     return;
   }
-  state.dispatch("peer", "REQUEST");
+  state.dispatch('peer', 'RESTART');
 };

@@ -3,7 +3,7 @@ import { CommandBus } from "./commandBus";
 import { State } from "./state/state";
 import { createNetClient } from "./net";
 import { initializeContext } from "./context";
-import { registerHandlers } from "./handlers";
+import { registerHandlers } from "./handlers/register.ts";
 
 export const createSession = () => {
   const bus = new CommandBus();

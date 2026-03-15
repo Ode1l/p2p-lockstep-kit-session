@@ -10,7 +10,7 @@ export const start: CommandListener = (command) => {
     state.dispatch("self", "START");
     send({
       type: "START",
-      payload: command.payload,
+      payload: "",
       from: "",
     });
     return;

@@ -26,7 +26,7 @@ export const ready: CommandListener = (command) => {
     return;
   }
 
-  if (sid && command.sid) {
+  if (sid && command.sid && sid !== command.sid) {
     bus.emit("REJECT", { reason: "sid-mismatch" }, "local");
     return;
   }

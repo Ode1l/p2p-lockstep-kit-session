@@ -14,7 +14,7 @@ export class State {
   private self = new SessionFsm('idle');
   private peer = new SessionFsm('idle');
   private readonly history: TurnEntry[] = [];
-  private pendingAction: "undo" | "restart" | null = null;
+  private pendingAction: 'undo' | 'restart' | null = null;
   private lastStart: PlayerLabel | null = null;
   private resumeTurn: PlayerLabel | null = null;
 
@@ -23,7 +23,7 @@ export class State {
   }
 
   public resolveSide(side: TurnSide): PlayerLabel {
-    return side === "local" ? "self" : "peer";
+    return side === 'local' ? 'self' : 'peer';
   }
 
   public getState(player: PlayerLabel): SessionState {
@@ -38,6 +38,16 @@ export class State {
     return this.history.slice();
   }
 
+  public replaceHistory(
+    entries: { turn: number; player: string; move: unknown }[],
+  ): void {
+    this.history.splice(0, this.history.length, ...entries);
+  }
+
+  public clearHistory(): void {
+    this.history.splice(0, this.history.length);
+  }
+
   public pushHistory(entry: TurnEntry): void {
     this.history.push(entry);
   }
@@ -46,15 +56,23 @@ export class State {
     return this.history.pop() ?? null;
   }
 
-  public canAction(player: PlayerLabel, action: SessionEvent, to?: SessionState | TurnStateLabel): boolean {
+  public canAction(
+    player: PlayerLabel,
+    action: SessionEvent,
+    to?: SessionState | TurnStateLabel,
+  ): boolean {
     return this.getPlayer(player).hasNextState(action, to); // todo resolve diff type of to
   }
 
-  public dispatch(player: PlayerLabel, action: SessionEvent, to?: SessionState | TurnStateLabel): void {
+  public dispatch(
+    player: PlayerLabel,
+    action: SessionEvent,
+    to?: SessionState | TurnStateLabel,
+  ): void {
     this.getPlayer(player).dispatch(action, to); // todo resolve diff type of to
   }
 
-  public setPendingAction(action: "undo" | "restart" | null) {
+  public setPendingAction(action: 'undo' | 'restart' | null) {
     this.pendingAction = action;
   }
 
@@ -80,21 +98,21 @@ export class State {
 
   public getAvailableActions(player: PlayerLabel): SessionEvent[] {
     const candidates: SessionEvent[] = [
-      "READY",
-      "PEER_READY",
-      "START",
-      "PEER_START",
-      "MOVE",
-      "PEER_MOVE",
-      "UNDO",
-      "PEER_UNDO",
-      "APPROVE",
-      "REJECT",
-      "GAME_OVER",
-      "REJOIN",
-      "SYNC",
-      "SYNC_COMPLETE",
-      "RESTART",
+      'READY',
+      'PEER_READY',
+      'START',
+      'PEER_START',
+      'MOVE',
+      'PEER_MOVE',
+      'UNDO',
+      'PEER_UNDO',
+      'APPROVE',
+      'REJECT',
+      'GAME_OVER',
+      'REJOIN',
+      'SYNC',
+      'SYNC_COMPLETE',
+      'RESTART',
     ];
     return candidates.filter((action) => this.canAction(player, action));
   }

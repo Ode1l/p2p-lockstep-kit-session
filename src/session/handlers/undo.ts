@@ -3,6 +3,7 @@ import { getState, send } from "../context";
 
 export const undo: CommandListener = (command: CommandMessage) => {
   const state = getState();
+  // todo
   if (command.origin === "local") {
     if (!state.canAction("self", "UNDO") || !state.canAction("peer", "PEER_UNDO")) {
       return;

@@ -41,7 +41,6 @@ export class State {
     return this.peerId;
   }
 
-
   private getPlayer(player: PlayerLabel): SessionFsm {
     return player === 'self' ? this.self : this.peer;
   }
@@ -67,13 +66,13 @@ export class State {
   }
 
   public replaceHistory(
-    entries:TurnEntry[],
+    entries: { turn: number; player: string; move: any }[],
   ): void {
     this.clearHistory();
-    entries.forEach((entry)=> {
+    entries.forEach((entry) => {
       entry.player = this.reversePlayer(entry.player);
       this.pushHistory(entry);
-    })
+    });
   }
 
   public clearHistory(): void {

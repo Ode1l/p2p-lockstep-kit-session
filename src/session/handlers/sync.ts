@@ -1,10 +1,11 @@
 import type { CommandListener } from "../commandBus";
 import type { SessionMessage } from "../../utils";
 import { getState, send } from "../context";
+import { TurnEntry } from '../state/state.ts';
 
 export const sync: CommandListener = (command) => {
   const state = getState();
-
+  // todo
   if (command.type === "SYNC_REQUEST") {
     state.dispatch("self", "SYNC", "syncing");
     state.dispatch("peer", "SYNC", "syncing");
@@ -32,7 +33,7 @@ export const sync: CommandListener = (command) => {
   }) || {};
 
   const history = payload.history ?? [];
-  const normalized = history.map((entry) => ({
+  const normalized = history.map((entry: TurnEntry) => ({
     turn: entry.turn,
     player: entry.player === "self" ? "peer" : "self",
     move: entry.move,

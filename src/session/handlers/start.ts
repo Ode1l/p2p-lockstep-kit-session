@@ -18,7 +18,7 @@ const resolveStarterFromPayload = (
 
 export const start: CommandListener = (command) => {
   const state = getState();
-
+  // todo
   if (command.origin === "local") {
     const starter = flipStarter(state.getLastStart());
     const selfNext = starter === "self" ? "my_turn" : "peer_turn";

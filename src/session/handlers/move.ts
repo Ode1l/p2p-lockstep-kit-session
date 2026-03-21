@@ -1,5 +1,6 @@
 import type { CommandListener } from "../commandBus";
 import { getState, send } from "../context";
+import type { SessionMessage } from '../../utils';
 
 export const move: CommandListener = (command) => {
   const state = getState();
@@ -11,10 +12,20 @@ export const move: CommandListener = (command) => {
     if (!canSelf || !canPeer) {
       return;
     }
-    state.pushHistory({ turn: state.getTurnCount(), player: "self", move: movePayload });
     state.dispatch("self", "MOVE");
     state.dispatch("peer", "PEER_MOVE");
-    send({ type: "MOVE", payload: movePayload, from: "" });
+    const turn = state.getTurnCount();
+    state.pushHistory({
+      turn: turn,
+      player: 'self',
+      move: movePayload,
+    });
+    const message: SessionMessage = {
+      type: 'MOVE',
+      turn: turn,
+      payload: movePayload
+    };
+    send(message);
     return;
   }
 
@@ -23,7 +34,11 @@ export const move: CommandListener = (command) => {
   if (!canPeer || !canSelf) {
     return;
   }
-  state.pushHistory({ turn: state.getTurnCount(), player: "peer", move: movePayload });
   state.dispatch("peer", "MOVE");
   state.dispatch("self", "PEER_MOVE");
+  state.pushHistory({
+    turn: state.getTurnCount(),
+    player: 'peer',
+    move: movePayload,
+  });
 };

@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/register.ts"],
+  entry: ["src/busRegister.ts"],
   format: ["esm"],
   dts: true,
   sourcemap: true,

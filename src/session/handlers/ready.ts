@@ -18,20 +18,19 @@ export const ready: CommandListener = (command) => {
 
     const message: SessionMessage = {
       type: "READY",
-      from: "",
       sid: sid,
-      payload: { ready: true },
     };
     send(message);
     return;
   }
 
-  if (sid && command.sid && sid !== command.sid) {
+  if (sid !== command.sid) {
     bus.emit("REJECT", { reason: "sid-mismatch" }, "local");
     return;
   }
-  if (!state.canAction("peer", "PEER_READY")) {
+  if (!state.canAction("peer", "READY") && state.canAction("self", "PEER_READY")) {
     return;
   }
-  state.dispatch("peer", "PEER_READY");
+  state.dispatch("peer", "READY");
+  state.dispatch("self", "PEER_READY");
 };

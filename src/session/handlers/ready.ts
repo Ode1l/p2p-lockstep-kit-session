@@ -7,14 +7,14 @@ export const ready: CommandListener = (command) => {
   const bus = getBus();
   const sid = getSid();
 
-  if (command.origin === 'local') {
-    const canSelf = state.canAction('self', 'READY');
-    const canPeer = state.canAction('peer', 'PEER_READY');
+  if (command.from === 'local') {
+    const canSelf = state.canAction('local', 'READY');
+    const canPeer = state.canAction('remote', 'REMOTE_READY');
     if (!canSelf || !canPeer) {
       return;
     }
-    state.dispatch('self', 'READY');
-    state.dispatch('peer', 'PEER_READY');
+    state.dispatch('local', 'READY');
+    state.dispatch('remote', 'REMOTE_READY');
 
     const message: SessionMessage = {
       type: 'READY',
@@ -29,11 +29,11 @@ export const ready: CommandListener = (command) => {
     return;
   }
   if (
-    !state.canAction('peer', 'READY') &&
-    state.canAction('self', 'PEER_READY')
+    !state.canAction('remote', 'READY') &&
+    state.canAction('local', 'REMOTE_READY')
   ) {
     return;
   }
-  state.dispatch('peer', 'READY');
-  state.dispatch('self', 'PEER_READY');
+  state.dispatch('remote', 'READY');
+  state.dispatch('local', 'REMOTE_READY');
 };

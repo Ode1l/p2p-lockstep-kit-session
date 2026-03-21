@@ -2,57 +2,46 @@ import type { CommandListener } from '../commandBus';
 import { getState, send } from '../context';
 import type { PlayerLabel } from '../state/state';
 
-const flipStarter = (last: PlayerLabel | null): PlayerLabel => {
+const getStarter = (last: PlayerLabel | null): PlayerLabel => {
   if (!last) {
-    return Math.random() < 0.5 ? 'self' : 'peer';
+    return Math.random() < 0.5 ? 'local' : 'remote';
   }
-  return last === 'self' ? 'peer' : 'self';
+  return last === 'local' ? 'remote' : 'local';
 };
-
-const starterPayload = (starter: PlayerLabel): 'sender' | 'receiver' =>
-  starter === 'self' ? 'sender' : 'receiver';
-
-const resolveStarterFromPayload = (
-  value?: 'sender' | 'receiver',
-): PlayerLabel => (value === 'receiver' ? 'self' : 'peer');
 
 export const start: CommandListener = (command) => {
   const state = getState();
   // todo
-  if (command.origin === 'local') {
-    const starter = flipStarter(state.getLastStart());
-    const selfNext = starter === 'self' ? 'my_turn' : 'peer_turn';
-    const peerNext = starter === 'self' ? 'peer_turn' : 'my_turn';
+  if (command.from === 'local') {
+    const starter = getStarter(state.getLastStart());
+    const localNext = starter === 'local' ? 'local_turn' : 'remote_turn';
+    const remoteNext = starter === 'local' ? 'remote_turn' : 'local_turn';
     if (
-      !state.canAction('self', 'START', selfNext) ||
-      !state.canAction('peer', 'PEER_START', peerNext)
+      !state.canAction('local', 'START', localNext) ||
+      !state.canAction('remote', 'REMOTE_START', remoteNext)
     ) {
       return;
     }
-    state.dispatch('self', 'START', selfNext);
-    state.dispatch('peer', 'PEER_START', peerNext);
+    state.dispatch('local', 'START', localNext);
+    state.dispatch('remote', 'REMOTE_START', remoteNext);
     state.setLastStart(starter);
     send({
       type: 'START',
       from: '',
-      payload: { starter: starterPayload(starter) },
+      payload: { starter: starter === 'local' ? 'sender' : 'receiver' },
     });
     return;
   }
-
-  const starterSide = resolveStarterFromPayload(
-    (command.payload as { starter?: 'sender' | 'receiver' } | undefined)
-      ?.starter,
-  );
-  const selfNext = starterSide === 'self' ? 'my_turn' : 'peer_turn';
-  const peerNext = starterSide === 'self' ? 'peer_turn' : 'my_turn';
+  const starter = command.payload.starter === 'sender' ? 'local' : 'remote';
+  const selfNext = starter === 'local' ? 'local_turn' : 'remote_turn';
+  const peerNext = starter === 'local' ? 'remote_turn' : 'local_turn';
   if (
-    !state.canAction('self', 'PEER_START', selfNext) ||
-    !state.canAction('peer', 'START', peerNext)
+    !state.canAction('local', 'START', selfNext) ||
+    !state.canAction('remote', 'REMOTE_START', peerNext)
   ) {
     return;
   }
-  state.dispatch('self', 'PEER_START', selfNext);
-  state.dispatch('peer', 'START', peerNext);
-  state.setLastStart(starterSide);
+  state.dispatch('local', 'REMOTE_START', selfNext);
+  state.dispatch('remote', 'START', peerNext);
+  state.setLastStart(starter);
 };

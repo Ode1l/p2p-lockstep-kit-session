@@ -13,7 +13,7 @@ export const createSession = (sid?: string) => {
   const state = new State(id, peerId);
   const net = busOnNet(client, bus, id);
 
-  initializeContext({ bus, state, net, sid });
+  initializeContext(state, bus, net, sid);
   registerHandlers(bus);
 
   return {

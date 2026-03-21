@@ -7,8 +7,6 @@ export type TurnEntry = {
 };
 
 export type PlayerLabel = 'local' | 'remote';
-export type TurnSide = 'local' | 'remote';
-export type TurnStateLabel = 'my_turn' | 'remote_turn';
 
 export class State {
   private local = new SessionFsm('idle');
@@ -39,10 +37,6 @@ export class State {
 
   public getremoteId(): string | null {
     return this.remoteId;
-  }
-
-  public resolveSide(side: TurnSide): PlayerLabel {
-    return side === 'local' ? 'local' : 'remote';
   }
 
   public getState(player: PlayerLabel): SessionState {
@@ -80,7 +74,7 @@ export class State {
   public canAction(
     player: PlayerLabel,
     action: SessionEvent,
-    to?: SessionState | TurnStateLabel,
+    to?: SessionState,
   ): boolean {
     return this.getPlayer(player).hasNextState(action, to); // todo resolve diff type of to
   }
@@ -88,7 +82,7 @@ export class State {
   public dispatch(
     player: PlayerLabel,
     action: SessionEvent,
-    to?: SessionState | TurnStateLabel,
+    to?: SessionState,
   ): void {
     this.getPlayer(player).dispatch(action, to); // todo resolve diff type of to
   }

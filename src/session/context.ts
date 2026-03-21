@@ -1,24 +1,19 @@
 import type { State } from './state/state';
 import type { CommandBus } from './commandBus';
-import type { NetAdapter } from './net';
 import type { SessionMessage } from '../utils';
+import { net } from './net';
 
 class SessionContext {
   private state: State;
   private bus: CommandBus;
-  private net: NetAdapter;
+  private net: net;
   private sid?: string;
 
-  constructor(deps: {
-    state: State;
-    bus: CommandBus;
-    net: NetAdapter;
-    sid?: string;
-  }) {
-    this.state = deps.state;
-    this.bus = deps.bus;
-    this.net = deps.net;
-    this.sid = deps.sid;
+  constructor(state: State, bus: CommandBus, net: net, sid?: string) {
+    this.state = state;
+    this.bus = bus;
+    this.net = net;
+    this.sid = sid;
   }
 
   getState() {
@@ -40,14 +35,13 @@ class SessionContext {
 
 let instance: SessionContext | null = null;
 
-export const initializeContext = (deps: {
-  state: State;
-  bus: CommandBus;
-  net: NetAdapter;
-  sid?: string;
-  game?: string;
-}) => {
-  instance = new SessionContext(deps);
+export const initializeContext = (
+  state: State,
+  bus: CommandBus,
+  net: net,
+  sid?: string,
+) => {
+  instance = new SessionContext(state, bus, net, sid);
 };
 
 const requireContext = () => {

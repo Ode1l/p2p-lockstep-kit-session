@@ -2,7 +2,7 @@ import type { NetworkClient } from '../../p2p-lockstep-kit-network/network';
 import type { SessionMessage } from '../utils';
 import type { CommandBus } from './commandBus';
 
-class net {
+export class net {
   private readonly client: NetworkClient;
   private readonly bus: CommandBus;
   private readonly id: string | null = null;
@@ -20,7 +20,7 @@ class net {
       if (!message || typeof message !== 'object' || !message.type) {
         return;
       }
-      this.bus.emit(String(message.type), message as SessionMessage, 'remote');
+      this.bus.emit(message.type, message as SessionMessage, 'remote');
     });
   }
 

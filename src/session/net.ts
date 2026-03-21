@@ -1,26 +1,37 @@
-import type { NetworkClient } from '../../p2p-lockstep-kit-network/network';
+import type { NetworkClient } from "../../p2p-lockstep-kit-network/network";
 import type { SessionMessage } from "../utils";
-import { CommandBus } from "./commandBus";
+import type { CommandBus } from "./commandBus";
 
-export type NetAdapter = {
-  send: (message: SessionMessage) => void;
-};
+class net {
+  private readonly client: NetworkClient;
+  private readonly bus: CommandBus;
+  private readonly id: string | null = null;
 
-export const createNetClient = (
-  client: NetworkClient,
-  bus: CommandBus,
-) => {
-  client.onMessage((data) => {
-    const message = data as Partial<SessionMessage> & { type?: string };
-    if (!message || typeof message !== "object" || !message.type) {
-      return;
-    }
-    bus.emit(String(message.type), message as SessionMessage, "remote");
-  });
+  public constructor(
+    client: NetworkClient,
+    bus: CommandBus,
+    id: string | null = null,
+  ) {
+    this.client = client;
+    this.bus = bus;
+    if (id) this.id = id;
+    this.client.onMessage((data) => {
+      const message = data as Partial<SessionMessage> & { type?: string };
+      if (!message || typeof message !== "object" || !message.type) {
+        return;
+      }
+      this.bus.emit(String(message.type), message as SessionMessage, "remote");
+    });
+  }
 
-  return {
-    send: (message: SessionMessage) => {
-      client.send(JSON.stringify(message));
-    },
-  };
-};
+  public send(message: SessionMessage) {
+    const enriched: SessionMessage = {
+      ...message,
+      from: message.from ?? this.id ?? "",
+    };
+    this.client.send(JSON.stringify(enriched));
+  }
+}
+
+export const busOnNet = (client: NetworkClient, bus: CommandBus, id: string | null) =>
+  new net(client, bus, id);

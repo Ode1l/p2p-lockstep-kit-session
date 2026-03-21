@@ -13,13 +13,41 @@ export type TurnStateLabel = "my_turn" | "peer_turn";
 export class State {
   private self = new SessionFsm('idle');
   private peer = new SessionFsm('idle');
+  private readonly selfId: string | null = null;
+  private peerId: string | null = null;
   private readonly history: TurnEntry[] = [];
   private pendingAction: 'undo' | 'restart' | null = null;
   private lastStart: PlayerLabel | null = null;
   private resumeTurn: PlayerLabel | null = null;
 
+  constructor(id: string | null, peerId: string | null) {
+    if (id) {
+      this.selfId = id;
+    }
+    if (peerId) {
+      this.peerId = peerId;
+    }
+  }
+
+  public setPeerId(id: string) {
+    this.peerId = id;
+  }
+
+  public getId(): string | null {
+    return this.selfId;
+  }
+
+  public getPeerId(): string | null {
+    return this.peerId;
+  }
+
+
   private getPlayer(player: PlayerLabel): SessionFsm {
     return player === 'self' ? this.self : this.peer;
+  }
+
+  private reversePlayer(player: PlayerLabel): PlayerLabel {
+    return player === 'self' ? 'peer' : 'self';
   }
 
   public resolveSide(side: TurnSide): PlayerLabel {
@@ -39,9 +67,13 @@ export class State {
   }
 
   public replaceHistory(
-    entries: { turn: number; player: string; move: unknown }[],
+    entries:TurnEntry[],
   ): void {
-    this.history.splice(0, this.history.length, ...entries);
+    this.clearHistory();
+    entries.forEach((entry)=> {
+      entry.player = this.reversePlayer(entry.player);
+      this.pushHistory(entry);
+    })
   }
 
   public clearHistory(): void {

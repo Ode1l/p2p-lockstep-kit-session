@@ -1,20 +1,17 @@
 import { createClient } from "../../p2p-lockstep-kit-network/network";
 import { CommandBus } from "./commandBus";
 import { State } from "./state/state";
-import { createNetClient } from "./net";
+import { busOnNet } from './net';
 import { initializeContext } from "./context";
 import { registerHandlers } from "./handlers/register.ts";
 
-export type SessionOptions = {
-  sid?: string;
-};
-
-export const createSession = (options: SessionOptions = {}) => {
+export const createSession = (sid?: string) => {
   const bus = new CommandBus();
-  const state = new State();
   const client = createClient();
-  const net = createNetClient(client, bus);
-  const { sid } = options;
+  const id = client.getLocalPeerId();
+  const peerId = client.getRemotePeerId();
+  const state = new State(id, peerId);
+  const net = busOnNet(client, bus, id);
 
   initializeContext({ bus, state, net, sid });
   registerHandlers(bus);

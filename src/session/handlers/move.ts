@@ -1,44 +1,44 @@
-import type { CommandListener } from "../commandBus";
-import { getState, send } from "../context";
+import type { CommandListener } from '../commandBus';
+import { getState, send } from '../context';
 import type { SessionMessage } from '../../utils';
 
 export const move: CommandListener = (command) => {
   const state = getState();
   const movePayload = command.payload;
 
-  if (command.origin === "local") {
-    const canSelf = state.canAction("self", "MOVE");
-    const canPeer = state.canAction("peer", "PEER_MOVE");
+  if (command.from === 'local') {
+    const canSelf = state.canAction('local', 'MOVE');
+    const canPeer = state.canAction('remote', 'REMOTE_MOVE');
     if (!canSelf || !canPeer) {
       return;
     }
-    state.dispatch("self", "MOVE");
-    state.dispatch("peer", "PEER_MOVE");
+    state.dispatch('local', 'MOVE');
+    state.dispatch('remote', 'REMOTE_MOVE');
     const turn = state.getTurnCount();
     state.pushHistory({
       turn: turn,
-      player: 'self',
+      player: 'local',
       move: movePayload,
     });
     const message: SessionMessage = {
       type: 'MOVE',
       turn: turn,
-      payload: movePayload
+      payload: movePayload,
     };
     send(message);
     return;
   }
 
-  const canPeer = state.canAction("peer", "MOVE");
-  const canSelf = state.canAction("self", "PEER_MOVE");
+  const canPeer = state.canAction('remote', 'MOVE');
+  const canSelf = state.canAction('local', 'REMOTE_MOVE');
   if (!canPeer || !canSelf) {
     return;
   }
-  state.dispatch("peer", "MOVE");
-  state.dispatch("self", "PEER_MOVE");
+  state.dispatch('remote', 'MOVE');
+  state.dispatch('local', 'REMOTE_MOVE');
   state.pushHistory({
     turn: state.getTurnCount(),
-    player: 'peer',
+    player: 'remote',
     move: movePayload,
   });
 };

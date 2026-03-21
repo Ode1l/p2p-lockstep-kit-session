@@ -1,9 +1,9 @@
-import QRCode from "qrcode";
-import { createPanel } from "./panel";
-import { createStyles } from "./styles";
-import { createShellLayout } from "./layout";
-import { createShellRequests } from "./requests";
-import type { VoiceUiState } from "../../types";
+import QRCode from 'qrcode';
+import { createPanel } from './panel';
+import { createStyles } from './styles';
+import { createShellLayout } from './layout';
+import { createShellRequests } from './requests';
+import type { VoiceUiState } from '../../types';
 
 type PanelInfo = {
   peerId: string;
@@ -34,12 +34,16 @@ export type ShellUiBundle = {
     }) => void;
   };
   updatePanel: (info: PanelInfo) => void;
-  shareLink: (options: { peerId: string; signalUrl: string; title?: string }) => Promise<void>;
+  shareLink: (options: {
+    peerId: string;
+    signalUrl: string;
+    title?: string;
+  }) => Promise<void>;
   getPeerId: () => string;
   log: (message: string) => void;
   promptUndo: () => Promise<boolean>;
   promptRestart: () => Promise<boolean>;
-  promptRejoinChoice: () => Promise<"rejoin" | "restart">;
+  promptRejoinChoice: () => Promise<'rejoin' | 'restart'>;
   promptRejoinApprove: () => Promise<boolean>;
   showStart: () => void;
   showWinner: (winner: 0 | 1 | 2) => void;
@@ -48,7 +52,9 @@ export type ShellUiBundle = {
   setRemoteVoiceStream: (stream: MediaStream | null) => void;
 };
 
-export const createShellUi = (options?: { defaultSignalUrl?: string }): ShellUiBundle => {
+export const createShellUi = (options?: {
+  defaultSignalUrl?: string;
+}): ShellUiBundle => {
   createStyles();
 
   const panel = createPanel();
@@ -57,7 +63,8 @@ export const createShellUi = (options?: { defaultSignalUrl?: string }): ShellUiB
   }
 
   const layout = createShellLayout(panel);
-  const { showRequest, showWinner, showNotice, hideAll } = createShellRequests(layout);
+  const { showRequest, showWinner, showNotice, hideAll } =
+    createShellRequests(layout);
   const {
     container,
     boardWrap,
@@ -80,32 +87,32 @@ export const createShellUi = (options?: { defaultSignalUrl?: string }): ShellUiB
     remoteAudio,
   } = layout;
 
-  let lastPeerId = "";
+  let lastPeerId = '';
   let lastMyColor: 1 | 2 | null = null;
   let voiceActionBound = false;
   let voiceAvailable = false;
 
   const refreshVoiceButton = () => {
     const canShow = voiceActionBound && voiceAvailable;
-    voiceBtn.style.display = canShow ? "inline-flex" : "none";
-    const pending = voiceBtn.dataset.state === "starting";
+    voiceBtn.style.display = canShow ? 'inline-flex' : 'none';
+    const pending = voiceBtn.dataset.state === 'starting';
     voiceBtn.disabled = !canShow || pending;
   };
 
   const setVoiceState = (state: VoiceUiState) => {
     const baseLabel =
-      state.status === "active"
-        ? "Voice On"
-        : state.status === "starting"
-          ? "Voice..."
-          : state.status === "error"
-            ? "Voice Error"
-            : "Voice Off";
+      state.status === 'active'
+        ? 'Voice On'
+        : state.status === 'starting'
+          ? 'Voice...'
+          : state.status === 'error'
+            ? 'Voice Error'
+            : 'Voice Off';
     voiceBtn.dataset.state = state.status;
-    voiceBtn.dataset.remote = state.remote ? "true" : "false";
+    voiceBtn.dataset.remote = state.remote ? 'true' : 'false';
     voiceBtn.textContent = state.remote ? `${baseLabel} • Peer` : baseLabel;
-    voiceBtn.classList.toggle("btn-primary", state.status === "active");
-    voiceBtn.classList.toggle("btn-ghost", state.status !== "active");
+    voiceBtn.classList.toggle('btn-primary', state.status === 'active');
+    voiceBtn.classList.toggle('btn-ghost', state.status !== 'active');
     refreshVoiceButton();
   };
 
@@ -131,27 +138,27 @@ export const createShellUi = (options?: { defaultSignalUrl?: string }): ShellUiB
   const buildShareUrl = (peerId: string, signalUrl: string) => {
     const url = new URL(window.location.href);
     const shareParams = new URLSearchParams();
-    shareParams.set("id", peerId);
-    shareParams.set("url", signalUrl);
+    shareParams.set('id', peerId);
+    shareParams.set('url', signalUrl);
     url.hash = shareParams.toString();
     return url.toString();
   };
 
   const parseShareInput = (value: string) => {
     const raw = value.trim();
-    if (!raw || !raw.includes("://")) {
+    if (!raw || !raw.includes('://')) {
       return null;
     }
     try {
       const url = new URL(raw);
-      const hash = url.hash.replace(/^#/, "");
+      const hash = url.hash.replace(/^#/, '');
       const params = new URLSearchParams(hash || url.search);
-      const peerId = params.get("id");
-      const signalUrl = params.get("url");
+      const peerId = params.get('id');
+      const signalUrl = params.get('url');
       if (!peerId) {
         return null;
       }
-      return { peerId, signalUrl: signalUrl ?? "" };
+      return { peerId, signalUrl: signalUrl ?? '' };
     } catch {
       return null;
     }
@@ -161,8 +168,8 @@ export const createShellUi = (options?: { defaultSignalUrl?: string }): ShellUiB
     const peerId = lastPeerId;
     const signalUrl = panel.refs.signalUrl.value;
     const canvas = panel.refs.shareQr;
-    const ctx = canvas.getContext("2d");
-    if (!peerId || peerId === "-") {
+    const ctx = canvas.getContext('2d');
+    if (!peerId || peerId === '-') {
       if (ctx) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
       }
@@ -170,103 +177,111 @@ export const createShellUi = (options?: { defaultSignalUrl?: string }): ShellUiB
     }
     const shareUrl = buildShareUrl(peerId, signalUrl);
     try {
-      const size = Math.max(160, Math.floor(canvas.getBoundingClientRect().width));
+      const size = Math.max(
+        160,
+        Math.floor(canvas.getBoundingClientRect().width),
+      );
       await QRCode.toCanvas(canvas, shareUrl, { width: size, margin: 1 });
     } catch (err) {
-      console.log("[shell-ui] QR render failed", err);
+      console.log('[shell-ui] QR render failed', err);
     }
   };
 
   const updatePanel = (info: PanelInfo) => {
-    lastPeerId = info.peerId || "";
-    panel.refs.gameTitle.textContent = info.gameTitle || "-";
-    panel.refs.gameSubtitle.textContent = `ID: ${info.peerId || "-"}`;
+    lastPeerId = info.peerId || '';
+    panel.refs.gameTitle.textContent = info.gameTitle || '-';
+    panel.refs.gameSubtitle.textContent = `ID: ${info.peerId || '-'}`;
     const showBoard = info.connected;
     if (showBoard) {
-      container.classList.remove("single");
+      container.classList.remove('single');
     } else {
-      container.classList.add("single");
+      container.classList.add('single');
     }
-    boardColumn.style.display = showBoard ? "flex" : "none";
-    boardWrap.style.display = showBoard ? "block" : "none";
-    statusRow.style.display = showBoard ? "flex" : "none";
-    actionsRow.style.display = showBoard ? "flex" : "none";
+    boardColumn.style.display = showBoard ? 'flex' : 'none';
+    boardWrap.style.display = showBoard ? 'block' : 'none';
+    statusRow.style.display = showBoard ? 'flex' : 'none';
+    actionsRow.style.display = showBoard ? 'flex' : 'none';
     if (!showBoard) {
       hideAll();
     }
 
-    panel.refs.root.style.display = showBoard ? "none" : "grid";
-    panel.refs.configButton.style.display = showBoard ? "none" : "grid";
+    panel.refs.root.style.display = showBoard ? 'none' : 'grid';
+    panel.refs.configButton.style.display = showBoard ? 'none' : 'grid';
     if (showBoard) {
-      configModal.classList.add("hidden");
-      panel.refs.joinCard.style.display = "none";
-      panel.refs.shareCard.style.display = "none";
+      configModal.classList.add('hidden');
+      panel.refs.joinCard.style.display = 'none';
+      panel.refs.shareCard.style.display = 'none';
     } else {
-      panel.refs.joinCard.style.display = "grid";
-      panel.refs.shareCard.style.display = "grid";
+      panel.refs.joinCard.style.display = 'grid';
+      panel.refs.shareCard.style.display = 'grid';
     }
 
     lastMyColor = info.myColor;
     const colorLabel = info.started
       ? info.myColor === 1
-        ? "Black"
+        ? 'Black'
         : info.myColor === 2
-          ? "White"
-          : "-"
-      : "-";
-    const turnLabel = info.started ? (info.currentPlayer === 1 ? "Black" : "White") : "-";
+          ? 'White'
+          : '-'
+      : '-';
+    const turnLabel = info.started
+      ? info.currentPlayer === 1
+        ? 'Black'
+        : 'White'
+      : '-';
     statusColor.textContent = `Color: ${colorLabel}`;
     statusTurn.textContent = info.started
       ? `Turn: ${info.currentTurn} (${turnLabel})`
-      : "Turn: -";
+      : 'Turn: -';
 
     const canStart = info.connected && info.readyPeer && !info.started;
-    readyBtn.textContent = "Ready";
-    readyBtn.dataset.ready = info.readySelf ? "true" : "false";
-    readyBtn.classList.toggle("btn-primary", !info.readySelf);
-    readyBtn.classList.toggle("btn-ghost", info.readySelf);
-    readyBtn.style.display = !info.started && !canStart ? "inline-flex" : "none";
+    readyBtn.textContent = 'Ready';
+    readyBtn.dataset.ready = info.readySelf ? 'true' : 'false';
+    readyBtn.classList.toggle('btn-primary', !info.readySelf);
+    readyBtn.classList.toggle('btn-ghost', info.readySelf);
+    readyBtn.style.display =
+      !info.started && !canStart ? 'inline-flex' : 'none';
     readyBtn.disabled = !info.connected;
-    startBtn.style.display = canStart ? "inline-flex" : "none";
+    startBtn.style.display = canStart ? 'inline-flex' : 'none';
     startBtn.disabled = !canStart;
-    const undoPending = undoBtn.dataset.pending === "true";
+    const undoPending = undoBtn.dataset.pending === 'true';
     undoBtn.disabled = !info.connected || !info.started || undoPending;
-    const restartPending = restartBtn.dataset.pending === "true";
-    restartBtn.style.display = info.started ? "inline-flex" : "none";
+    const restartPending = restartBtn.dataset.pending === 'true';
+    restartBtn.style.display = info.started ? 'inline-flex' : 'none';
     restartBtn.disabled = !info.connected || !info.started || restartPending;
     voiceAvailable = info.connected;
     refreshVoiceButton();
     void updateQr();
   };
 
-  panel.refs.signalUrl.addEventListener("input", () => {
+  panel.refs.signalUrl.addEventListener('input', () => {
     void updateQr();
   });
 
-  panel.refs.configButton.addEventListener("click", () => {
+  panel.refs.configButton.addEventListener('click', () => {
     configInput.value = panel.refs.signalUrl.value;
-    configModal.classList.remove("hidden");
+    configModal.classList.remove('hidden');
     configInput.focus();
   });
-  configCancel.addEventListener("click", () => {
-    configModal.classList.add("hidden");
+  configCancel.addEventListener('click', () => {
+    configModal.classList.add('hidden');
   });
-  configSave.addEventListener("click", () => {
+  configSave.addEventListener('click', () => {
     const nextUrl = configInput.value.trim();
     panel.refs.signalUrl.value = nextUrl;
-    configModal.classList.add("hidden");
+    configModal.classList.add('hidden');
     panel.refs.root.dispatchEvent(
-      new CustomEvent("signalUrlChanged", { detail: { url: nextUrl } }),
+      new CustomEvent('signalUrlChanged', { detail: { url: nextUrl } }),
     );
     void updateQr();
   });
-  configModal.addEventListener("click", (event) => {
+  configModal.addEventListener('click', (event) => {
     if (event.target === configModal) {
-      configModal.classList.add("hidden");
+      configModal.classList.add('hidden');
     }
   });
 
-  panel.refs.gameSubtitle.addEventListener("click", async () => {
+  panel.refs.gameSubtitle.addEventListener('click', async () => {
     const id = lastPeerId;
     if (!id) {
       return;
@@ -274,14 +289,14 @@ export const createShellUi = (options?: { defaultSignalUrl?: string }): ShellUiB
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(id);
-        console.log("[shell-ui] Game id copied.");
+        console.log('[shell-ui] Game id copied.');
       }
     } catch {
       // ignore
     }
   });
 
-  panel.refs.targetId.addEventListener("input", () => {
+  panel.refs.targetId.addEventListener('input', () => {
     const parsed = parseShareInput(panel.refs.targetId.value);
     if (parsed) {
       panel.refs.targetId.value = parsed.peerId;
@@ -292,43 +307,51 @@ export const createShellUi = (options?: { defaultSignalUrl?: string }): ShellUiB
     }
   });
 
-  const shareLink = async (options: { peerId: string; signalUrl: string; title?: string }) => {
+  const shareLink = async (options: {
+    peerId: string;
+    signalUrl: string;
+    title?: string;
+  }) => {
     const { peerId, signalUrl, title } = options;
-    if (!peerId || peerId === "-") {
-      console.log("[shell-ui] Register first to get a peer id.");
+    if (!peerId || peerId === '-') {
+      console.log('[shell-ui] Register first to get a peer id.');
       return;
     }
     const shareUrl = buildShareUrl(peerId, signalUrl);
     try {
       if (window.isSecureContext && navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(shareUrl);
-        console.log("[shell-ui] Share link copied.");
+        console.log('[shell-ui] Share link copied.');
         return;
       }
     } catch (err) {
       const error = err as { name?: string };
-      if (error?.name === "NotAllowedError" || error?.name === "SecurityError") {
-        window.prompt(title ?? "Copy link", shareUrl);
+      if (
+        error?.name === 'NotAllowedError' ||
+        error?.name === 'SecurityError'
+      ) {
+        window.prompt(title ?? 'Copy link', shareUrl);
       } else {
-        console.log("[shell-ui] Share link copy failed", err);
+        console.log('[shell-ui] Share link copy failed', err);
       }
       return;
     }
-    window.prompt(title ?? "Copy link", shareUrl);
+    window.prompt(title ?? 'Copy link', shareUrl);
   };
 
   const log = (message: string) => {
-    if (logPanel.classList.contains("hidden")) {
+    if (logPanel.classList.contains('hidden')) {
       return;
     }
-    const entry = document.createElement("div");
+    const entry = document.createElement('div');
     entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
     logBody.prepend(entry);
   };
 
-  if (window.location.hash.includes("debug=1")) {
-    logPanel.classList.remove("hidden");
-    (window as unknown as { __p2p_debug?: (msg: string) => void }).__p2p_debug = log;
+  if (window.location.hash.includes('debug=1')) {
+    logPanel.classList.remove('hidden');
+    (window as unknown as { __p2p_debug?: (msg: string) => void }).__p2p_debug =
+      log;
   }
 
   return {
@@ -336,8 +359,8 @@ export const createShellUi = (options?: { defaultSignalUrl?: string }): ShellUiB
     panel,
     controls: {
       bindEvents: (events) => {
-        readyBtn.addEventListener("click", async () => {
-          const ready = readyBtn.dataset.ready === "true";
+        readyBtn.addEventListener('click', async () => {
+          const ready = readyBtn.dataset.ready === 'true';
           readyBtn.disabled = true;
           try {
             await events.onReady(!ready);
@@ -345,7 +368,7 @@ export const createShellUi = (options?: { defaultSignalUrl?: string }): ShellUiB
             readyBtn.disabled = false;
           }
         });
-        startBtn.addEventListener("click", async () => {
+        startBtn.addEventListener('click', async () => {
           startBtn.disabled = true;
           try {
             await events.onStart();
@@ -353,36 +376,36 @@ export const createShellUi = (options?: { defaultSignalUrl?: string }): ShellUiB
             startBtn.disabled = false;
           }
         });
-        undoBtn.dataset.pending = "false";
-        undoBtn.addEventListener("click", async () => {
-          if (undoBtn.dataset.pending === "true") {
+        undoBtn.dataset.pending = 'false';
+        undoBtn.addEventListener('click', async () => {
+          if (undoBtn.dataset.pending === 'true') {
             return;
           }
-          undoBtn.dataset.pending = "true";
+          undoBtn.dataset.pending = 'true';
           undoBtn.disabled = true;
           try {
             await events.onUndo();
           } finally {
-            undoBtn.dataset.pending = "false";
+            undoBtn.dataset.pending = 'false';
           }
         });
-        restartBtn.dataset.pending = "false";
-        restartBtn.addEventListener("click", async () => {
-          if (restartBtn.dataset.pending === "true") {
+        restartBtn.dataset.pending = 'false';
+        restartBtn.addEventListener('click', async () => {
+          if (restartBtn.dataset.pending === 'true') {
             return;
           }
-          restartBtn.dataset.pending = "true";
+          restartBtn.dataset.pending = 'true';
           restartBtn.disabled = true;
           try {
             await events.onRestart();
           } finally {
-            restartBtn.dataset.pending = "false";
+            restartBtn.dataset.pending = 'false';
           }
         });
         if (events.onToggleVoice) {
           voiceActionBound = true;
           refreshVoiceButton();
-          voiceBtn.addEventListener("click", async () => {
+          voiceBtn.addEventListener('click', async () => {
             await events.onToggleVoice?.();
           });
         }
@@ -392,17 +415,18 @@ export const createShellUi = (options?: { defaultSignalUrl?: string }): ShellUiB
     shareLink,
     getPeerId: () => lastPeerId,
     log,
-    promptUndo: () => showRequest("Opponent requests an undo. Allow?"),
-    promptRestart: () => showRequest("Opponent requests a restart. Allow?"),
+    promptUndo: () => showRequest('Opponent requests an undo. Allow?'),
+    promptRestart: () => showRequest('Opponent requests a restart. Allow?'),
     promptRejoinChoice: () =>
-      showRequest("Resume previous match?", "Rejoin", "Restart").then((ok) =>
-        ok ? "rejoin" : "restart",
+      showRequest('Resume previous match?', 'Rejoin', 'Restart').then((ok) =>
+        ok ? 'rejoin' : 'restart',
       ),
-    promptRejoinApprove: () => showRequest("Opponent requests a rejoin. Allow?"),
+    promptRejoinApprove: () =>
+      showRequest('Opponent requests a rejoin. Allow?'),
     showStart: () => {
-      layout.startOverlay.classList.remove("play");
+      layout.startOverlay.classList.remove('play');
       void layout.startOverlay.offsetWidth;
-      layout.startOverlay.classList.add("play");
+      layout.startOverlay.classList.add('play');
     },
     showWinner: (winner) => showWinner(winner, lastMyColor),
     showNotice,

@@ -19,8 +19,8 @@ export type PanelRefs = {
 };
 
 export const createPanel = () => {
-  const root = document.createElement("div");
-  root.className = "panel";
+  const root = document.createElement('div');
+  root.className = 'panel';
 
   root.innerHTML = `
     <div class="panel-header">
@@ -63,23 +63,25 @@ export const createPanel = () => {
 
   const refs: PanelRefs = {
     root,
-    gameTitle: root.querySelector("#gameTitle") as HTMLSpanElement,
-    gameSubtitle: root.querySelector("#gameSubtitle") as HTMLSpanElement,
-    shareQr: root.querySelector("#shareQr") as HTMLCanvasElement,
-    signalUrl: root.querySelector("#signalUrl") as HTMLInputElement,
-    targetId: root.querySelector("#targetId") as HTMLInputElement,
-    joinButton: root.querySelector("#connectBtn") as HTMLButtonElement,
-    shareButton: root.querySelector("#shareBtn") as HTMLButtonElement,
-    configButton: root.querySelector("#configBtn") as HTMLButtonElement,
-    refreshButton: root.querySelector("#refreshBtn") as HTMLButtonElement,
-    joinCard: root.querySelector("#joinCard") as HTMLDivElement,
-    shareCard: root.querySelector("#shareCard") as HTMLDivElement,
+    gameTitle: root.querySelector('#gameTitle') as HTMLSpanElement,
+    gameSubtitle: root.querySelector('#gameSubtitle') as HTMLSpanElement,
+    shareQr: root.querySelector('#shareQr') as HTMLCanvasElement,
+    signalUrl: root.querySelector('#signalUrl') as HTMLInputElement,
+    targetId: root.querySelector('#targetId') as HTMLInputElement,
+    joinButton: root.querySelector('#connectBtn') as HTMLButtonElement,
+    shareButton: root.querySelector('#shareBtn') as HTMLButtonElement,
+    configButton: root.querySelector('#configBtn') as HTMLButtonElement,
+    refreshButton: root.querySelector('#refreshBtn') as HTMLButtonElement,
+    joinCard: root.querySelector('#joinCard') as HTMLDivElement,
+    shareCard: root.querySelector('#shareCard') as HTMLDivElement,
   };
 
   const bindEvents = (events: PanelEvents) => {
     const { targetId } = refs;
-    refs.joinButton.addEventListener("click", () => events.onConnect(targetId.value));
-    refs.shareButton.addEventListener("click", () => events.onShare());
+    refs.joinButton.addEventListener('click', () =>
+      events.onConnect(targetId.value),
+    );
+    refs.shareButton.addEventListener('click', () => events.onShare());
   };
 
   return { refs, bindEvents };

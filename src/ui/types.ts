@@ -1,7 +1,7 @@
-import type { PlayerId, WinnerId } from "../game/types";
+import type { PlayerId, WinnerId } from '../game/types';
 
 export type VoiceUiState = {
-  status: "idle" | "starting" | "active" | "error";
+  status: 'idle' | 'starting' | 'active' | 'error';
   remote?: boolean;
   error?: string;
 };
@@ -22,7 +22,7 @@ export type ShellUi = {
   log?: (message: string) => void;
   promptUndo?: () => Promise<boolean>;
   promptRestart?: () => Promise<boolean>;
-  promptRejoinChoice?: () => Promise<"rejoin" | "restart">;
+  promptRejoinChoice?: () => Promise<'rejoin' | 'restart'>;
   promptRejoinApprove?: () => Promise<boolean>;
   showStart?: () => void;
   showWinner?: (winner: WinnerId) => void;

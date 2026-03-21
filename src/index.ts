@@ -1,4 +1,4 @@
-export { createShell } from "./ui/shell";
+export { createShell } from './ui/shell';
 export type {
   IGamePlugin,
   IGameSession,
@@ -9,6 +9,6 @@ export type {
   IRuleGuardResult,
   ShellUi,
   VoiceUiState,
-} from "./ui/shell";
-export { createShellUi } from "./ui/shell/ui/shellUi";
-export { createDesktopShellUi } from "./ui/desktopShell";
+} from './ui/shell';
+export { createShellUi } from './ui/shell/ui/shellUi';
+export { createDesktopShellUi } from './ui/desktopShell';

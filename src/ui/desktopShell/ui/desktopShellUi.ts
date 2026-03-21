@@ -4,73 +4,81 @@ import type { ShellUiBundle } from '../../shell/ui/shellUi';
 import type { VoiceUiState } from '../../types';
 import { createDesktopStyles } from './styles';
 
-const createPanelRefs = (): { refs: PanelRefs; bindEvents: (events: {
-  onConnect: (peerId: string) => void;
-  onShare: () => void;
-}) => void } => {
-  const root = document.createElement("div");
-  root.className = "desktop-shell__sidebar";
+const createPanelRefs = (): {
+  refs: PanelRefs;
+  bindEvents: (events: {
+    onConnect: (peerId: string) => void;
+    onShare: () => void;
+  }) => void;
+} => {
+  const root = document.createElement('div');
+  root.className = 'desktop-shell__sidebar';
 
-  const header = document.createElement("div");
-  header.className = "desktop-shell__header";
-  const gameTitle = document.createElement("span");
-  gameTitle.className = "desktop-shell__title";
-  gameTitle.textContent = "-";
-  const gameSubtitle = document.createElement("span");
-  gameSubtitle.className = "desktop-shell__subtitle";
-  gameSubtitle.textContent = "ID: -";
+  const header = document.createElement('div');
+  header.className = 'desktop-shell__header';
+  const gameTitle = document.createElement('span');
+  gameTitle.className = 'desktop-shell__title';
+  gameTitle.textContent = '-';
+  const gameSubtitle = document.createElement('span');
+  gameSubtitle.className = 'desktop-shell__subtitle';
+  gameSubtitle.textContent = 'ID: -';
   header.append(gameTitle, gameSubtitle);
 
-  const refreshButton = document.createElement("button");
-  refreshButton.className = "desktop-shell__btn";
-  refreshButton.textContent = "Register";
+  const refreshButton = document.createElement('button');
+  refreshButton.className = 'desktop-shell__btn';
+  refreshButton.textContent = 'Register';
   header.append(refreshButton);
 
-  const fieldSignal = document.createElement("div");
-  fieldSignal.className = "desktop-shell__field";
-  const signalLabel = document.createElement("label");
-  signalLabel.textContent = "Signaling URL";
-  const signalRow = document.createElement("div");
-  signalRow.className = "desktop-shell__inputs";
-  const signalUrl = document.createElement("input");
-  signalUrl.placeholder = "ws://host:port";
-  signalUrl.autocomplete = "off";
-  const applyBtn = document.createElement("button");
-  applyBtn.textContent = "Apply";
+  const fieldSignal = document.createElement('div');
+  fieldSignal.className = 'desktop-shell__field';
+  const signalLabel = document.createElement('label');
+  signalLabel.textContent = 'Signaling URL';
+  const signalRow = document.createElement('div');
+  signalRow.className = 'desktop-shell__inputs';
+  const signalUrl = document.createElement('input');
+  signalUrl.placeholder = 'ws://host:port';
+  signalUrl.autocomplete = 'off';
+  const applyBtn = document.createElement('button');
+  applyBtn.textContent = 'Apply';
   signalRow.append(signalUrl, applyBtn);
   fieldSignal.append(signalLabel, signalRow);
 
-  const joinCard = document.createElement("div");
-  joinCard.className = "desktop-shell__field";
-  const targetLabel = document.createElement("label");
-  targetLabel.textContent = "Target ID";
-  const targetRow = document.createElement("div");
-  targetRow.className = "desktop-shell__inputs";
-  const targetId = document.createElement("input");
-  targetId.placeholder = "peer id or share link";
-  const joinButton = document.createElement("button");
-  joinButton.textContent = "Connect";
+  const joinCard = document.createElement('div');
+  joinCard.className = 'desktop-shell__field';
+  const targetLabel = document.createElement('label');
+  targetLabel.textContent = 'Target ID';
+  const targetRow = document.createElement('div');
+  targetRow.className = 'desktop-shell__inputs';
+  const targetId = document.createElement('input');
+  targetId.placeholder = 'peer id or share link';
+  const joinButton = document.createElement('button');
+  joinButton.textContent = 'Connect';
   targetRow.append(targetId, joinButton);
   joinCard.append(targetLabel, targetRow);
 
-  const shareCard = document.createElement("div");
-  shareCard.className = "desktop-shell__share";
-  const shareQr = document.createElement("canvas");
+  const shareCard = document.createElement('div');
+  shareCard.className = 'desktop-shell__share';
+  const shareQr = document.createElement('canvas');
   shareQr.width = 220;
   shareQr.height = 220;
-  const shareButton = document.createElement("button");
-  shareButton.className = "desktop-shell__btn";
-  shareButton.textContent = "Copy Share Link";
+  const shareButton = document.createElement('button');
+  shareButton.className = 'desktop-shell__btn';
+  shareButton.textContent = 'Copy Share Link';
   shareCard.append(shareQr, shareButton);
 
-  const configButton = document.createElement("button");
-  configButton.style.display = "none";
+  const configButton = document.createElement('button');
+  configButton.style.display = 'none';
 
   root.append(header, fieldSignal, joinCard, shareCard);
 
-  const bindEvents = (events: { onConnect: (peerId: string) => void; onShare: () => void }) => {
-    joinButton.addEventListener("click", () => events.onConnect(targetId.value));
-    shareButton.addEventListener("click", () => events.onShare());
+  const bindEvents = (events: {
+    onConnect: (peerId: string) => void;
+    onShare: () => void;
+  }) => {
+    joinButton.addEventListener('click', () =>
+      events.onConnect(targetId.value),
+    );
+    shareButton.addEventListener('click', () => events.onShare());
   };
 
   const refs: PanelRefs = {
@@ -92,35 +100,35 @@ const createPanelRefs = (): { refs: PanelRefs; bindEvents: (events: {
 };
 
 const createModal = () => {
-  const overlay = document.createElement("div");
-  overlay.className = "desktop-shell__modal hidden";
-  const card = document.createElement("div");
-  card.className = "desktop-shell__modal-card";
-  const label = document.createElement("div");
-  const actions = document.createElement("div");
-  actions.className = "desktop-shell__modal-actions";
-  const confirmBtn = document.createElement("button");
-  confirmBtn.className = "desktop-shell__btn";
-  const cancelBtn = document.createElement("button");
-  cancelBtn.className = "desktop-shell__btn";
-  cancelBtn.style.background = "rgba(255,255,255,0.1)";
-  cancelBtn.style.color = "#f6f7fb";
+  const overlay = document.createElement('div');
+  overlay.className = 'desktop-shell__modal hidden';
+  const card = document.createElement('div');
+  card.className = 'desktop-shell__modal-card';
+  const label = document.createElement('div');
+  const actions = document.createElement('div');
+  actions.className = 'desktop-shell__modal-actions';
+  const confirmBtn = document.createElement('button');
+  confirmBtn.className = 'desktop-shell__btn';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'desktop-shell__btn';
+  cancelBtn.style.background = 'rgba(255,255,255,0.1)';
+  cancelBtn.style.color = '#f6f7fb';
   actions.append(confirmBtn, cancelBtn);
   card.append(label, actions);
   overlay.append(card);
   document.body.appendChild(overlay);
 
-  const ask = (message: string, okLabel = "OK", cancelLabel = "Cancel") =>
+  const ask = (message: string, okLabel = 'OK', cancelLabel = 'Cancel') =>
     new Promise<boolean>((resolve) => {
       label.textContent = message;
       confirmBtn.textContent = okLabel;
       cancelBtn.textContent = cancelLabel;
-      overlay.classList.remove("hidden");
+      overlay.classList.remove('hidden');
       const finish = (value: boolean) => {
-        overlay.classList.add("hidden");
-        confirmBtn.removeEventListener("click", onConfirm);
-        cancelBtn.removeEventListener("click", onCancel);
-        overlay.removeEventListener("click", onBackdrop);
+        overlay.classList.add('hidden');
+        confirmBtn.removeEventListener('click', onConfirm);
+        cancelBtn.removeEventListener('click', onCancel);
+        overlay.removeEventListener('click', onBackdrop);
         resolve(value);
       };
       const onConfirm = () => finish(true);
@@ -130,9 +138,9 @@ const createModal = () => {
           finish(false);
         }
       };
-      confirmBtn.addEventListener("click", onConfirm);
-      cancelBtn.addEventListener("click", onCancel);
-      overlay.addEventListener("click", onBackdrop);
+      confirmBtn.addEventListener('click', onConfirm);
+      cancelBtn.addEventListener('click', onCancel);
+      overlay.addEventListener('click', onBackdrop);
     });
 
   return { ask };
@@ -141,88 +149,90 @@ const createModal = () => {
 const buildShareUrl = (peerId: string, signalUrl: string) => {
   const url = new URL(window.location.href);
   const params = new URLSearchParams();
-  params.set("id", peerId);
-  params.set("url", signalUrl);
+  params.set('id', peerId);
+  params.set('url', signalUrl);
   url.hash = params.toString();
   return url.toString();
 };
 
 const parseShareInput = (value: string) => {
   const raw = value.trim();
-  if (!raw || !raw.includes("://")) {
+  if (!raw || !raw.includes('://')) {
     return null;
   }
   try {
     const url = new URL(raw);
-    const hash = url.hash.replace(/^#/, "");
+    const hash = url.hash.replace(/^#/, '');
     const params = new URLSearchParams(hash || url.search);
-    const peerId = params.get("id");
-    const signalUrl = params.get("url");
+    const peerId = params.get('id');
+    const signalUrl = params.get('url');
     if (!peerId) {
       return null;
     }
-    return { peerId, signalUrl: signalUrl ?? "" };
+    return { peerId, signalUrl: signalUrl ?? '' };
   } catch {
     return null;
   }
 };
 
-export const createDesktopShellUi = (options?: { defaultSignalUrl?: string }): ShellUiBundle => {
+export const createDesktopShellUi = (options?: {
+  defaultSignalUrl?: string;
+}): ShellUiBundle => {
   createDesktopStyles();
 
   const { refs: panelRefs, bindEvents } = createPanelRefs();
-  const container = document.createElement("div");
-  container.className = "desktop-shell single";
-  const boardWrap = document.createElement("div");
-  boardWrap.className = "desktop-shell__board";
-  const noticeBar = document.createElement("div");
-  noticeBar.className = "desktop-shell__notice";
+  const container = document.createElement('div');
+  container.className = 'desktop-shell single';
+  const boardWrap = document.createElement('div');
+  boardWrap.className = 'desktop-shell__board';
+  const noticeBar = document.createElement('div');
+  noticeBar.className = 'desktop-shell__notice';
 
-  const statusGrid = document.createElement("div");
-  statusGrid.className = "desktop-shell__status";
-  const colorLabel = document.createElement("div");
+  const statusGrid = document.createElement('div');
+  statusGrid.className = 'desktop-shell__status';
+  const colorLabel = document.createElement('div');
   colorLabel.innerHTML = `Color<br/><span>-</span>`;
-  const turnLabel = document.createElement("div");
+  const turnLabel = document.createElement('div');
   turnLabel.innerHTML = `Turn<br/><span>-</span>`;
-  const readyLabel = document.createElement("div");
+  const readyLabel = document.createElement('div');
   readyLabel.innerHTML = `Ready<br/><span>-</span>`;
-  const cacheLabel = document.createElement("div");
+  const cacheLabel = document.createElement('div');
   cacheLabel.innerHTML = `Cache<br/><span>-</span>`;
   statusGrid.append(colorLabel, turnLabel, readyLabel, cacheLabel);
 
-  const controls = document.createElement("div");
-  controls.className = "desktop-shell__controls";
-  const readyBtn = document.createElement("button");
-  readyBtn.className = "desktop-shell__btn secondary";
-  readyBtn.textContent = "Ready";
-  readyBtn.dataset.ready = "false";
-  const startBtn = document.createElement("button");
-  startBtn.className = "desktop-shell__btn primary";
-  startBtn.textContent = "Start";
-  const undoBtn = document.createElement("button");
-  undoBtn.className = "desktop-shell__btn secondary";
-  undoBtn.textContent = "Undo";
-  undoBtn.dataset.pending = "false";
-  const restartBtn = document.createElement("button");
-  restartBtn.className = "desktop-shell__btn secondary";
-  restartBtn.textContent = "Restart";
-  restartBtn.dataset.pending = "false";
-  const voiceBtn = document.createElement("button");
-  voiceBtn.className = "desktop-shell__btn secondary";
-  voiceBtn.textContent = "Voice";
-  voiceBtn.dataset.state = "idle";
+  const controls = document.createElement('div');
+  controls.className = 'desktop-shell__controls';
+  const readyBtn = document.createElement('button');
+  readyBtn.className = 'desktop-shell__btn secondary';
+  readyBtn.textContent = 'Ready';
+  readyBtn.dataset.ready = 'false';
+  const startBtn = document.createElement('button');
+  startBtn.className = 'desktop-shell__btn primary';
+  startBtn.textContent = 'Start';
+  const undoBtn = document.createElement('button');
+  undoBtn.className = 'desktop-shell__btn secondary';
+  undoBtn.textContent = 'Undo';
+  undoBtn.dataset.pending = 'false';
+  const restartBtn = document.createElement('button');
+  restartBtn.className = 'desktop-shell__btn secondary';
+  restartBtn.textContent = 'Restart';
+  restartBtn.dataset.pending = 'false';
+  const voiceBtn = document.createElement('button');
+  voiceBtn.className = 'desktop-shell__btn secondary';
+  voiceBtn.textContent = 'Voice';
+  voiceBtn.dataset.state = 'idle';
   controls.append(readyBtn, startBtn, undoBtn, restartBtn, voiceBtn);
 
-  const logPanel = document.createElement("div");
-  logPanel.className = "desktop-shell__log hidden";
-  const logBody = document.createElement("div");
-  logBody.className = "desktop-shell__log-body";
+  const logPanel = document.createElement('div');
+  logPanel.className = 'desktop-shell__log hidden';
+  const logBody = document.createElement('div');
+  logBody.className = 'desktop-shell__log-body';
   logPanel.append(logBody);
 
-  const remoteAudio = document.createElement("audio");
+  const remoteAudio = document.createElement('audio');
   remoteAudio.autoplay = true;
-  remoteAudio.setAttribute("playsinline", "true");
-  remoteAudio.style.display = "none";
+  remoteAudio.setAttribute('playsinline', 'true');
+  remoteAudio.style.display = 'none';
 
   panelRefs.root.append(statusGrid, controls, noticeBar, logPanel, remoteAudio);
   container.append(panelRefs.root, boardWrap);
@@ -232,32 +242,32 @@ export const createDesktopShellUi = (options?: { defaultSignalUrl?: string }): S
   }
 
   const modal = createModal();
-  let lastPeerId = "";
+  let lastPeerId = '';
   let lastMyColor: 1 | 2 | null = null;
   let voiceActionBound = false;
   let voiceAvailable = false;
 
   const refreshVoiceButton = () => {
     const canShow = voiceActionBound && voiceAvailable;
-    voiceBtn.style.display = canShow ? "inline-flex" : "none";
-    const pending = voiceBtn.dataset.state === "starting";
+    voiceBtn.style.display = canShow ? 'inline-flex' : 'none';
+    const pending = voiceBtn.dataset.state === 'starting';
     voiceBtn.disabled = !canShow || pending;
   };
 
   const setVoiceState = (state: VoiceUiState) => {
     const baseLabel =
-      state.status === "active"
-        ? "Voice On"
-        : state.status === "starting"
-          ? "Voice..."
-          : state.status === "error"
-            ? "Voice Error"
-            : "Voice Off";
+      state.status === 'active'
+        ? 'Voice On'
+        : state.status === 'starting'
+          ? 'Voice...'
+          : state.status === 'error'
+            ? 'Voice Error'
+            : 'Voice Off';
     voiceBtn.dataset.state = state.status;
-    voiceBtn.dataset.remote = state.remote ? "true" : "false";
+    voiceBtn.dataset.remote = state.remote ? 'true' : 'false';
     voiceBtn.textContent = state.remote ? `${baseLabel} • Peer` : baseLabel;
-    voiceBtn.classList.toggle("primary", state.status === "active");
-    voiceBtn.classList.toggle("secondary", state.status !== "active");
+    voiceBtn.classList.toggle('primary', state.status === 'active');
+    voiceBtn.classList.toggle('secondary', state.status !== 'active');
     refreshVoiceButton();
   };
 
@@ -284,8 +294,8 @@ export const createDesktopShellUi = (options?: { defaultSignalUrl?: string }): S
     const peerId = lastPeerId;
     const signalUrl = panelRefs.signalUrl.value;
     const canvas = panelRefs.shareQr;
-    const ctx = canvas.getContext("2d");
-    if (!peerId || peerId === "-") {
+    const ctx = canvas.getContext('2d');
+    if (!peerId || peerId === '-') {
       if (ctx) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
       }
@@ -293,10 +303,13 @@ export const createDesktopShellUi = (options?: { defaultSignalUrl?: string }): S
     }
     const shareUrl = buildShareUrl(peerId, signalUrl);
     try {
-      const size = Math.max(200, Math.floor(canvas.getBoundingClientRect().width));
+      const size = Math.max(
+        200,
+        Math.floor(canvas.getBoundingClientRect().width),
+      );
       await QRCode.toCanvas(canvas, shareUrl, { width: size, margin: 1 });
     } catch (err) {
-      console.log("[desktop-shell] QR render failed", err);
+      console.log('[desktop-shell] QR render failed', err);
     }
   };
 
@@ -312,47 +325,50 @@ export const createDesktopShellUi = (options?: { defaultSignalUrl?: string }): S
     currentPlayer: 1 | 2;
     hasCache: boolean;
   }) => {
-    lastPeerId = info.peerId || "";
-    panelRefs.gameTitle.textContent = info.gameTitle || "-";
-    panelRefs.gameSubtitle.textContent = `ID: ${info.peerId || "-"}`;
-    container.classList.toggle("single", !info.connected);
-    boardWrap.style.display = info.connected ? "block" : "none";
-    panelRefs.joinCard.style.display = info.connected ? "none" : "flex";
-    panelRefs.shareCard.style.display = info.connected ? "none" : "grid";
+    lastPeerId = info.peerId || '';
+    panelRefs.gameTitle.textContent = info.gameTitle || '-';
+    panelRefs.gameSubtitle.textContent = `ID: ${info.peerId || '-'}`;
+    container.classList.toggle('single', !info.connected);
+    boardWrap.style.display = info.connected ? 'block' : 'none';
+    panelRefs.joinCard.style.display = info.connected ? 'none' : 'flex';
+    panelRefs.shareCard.style.display = info.connected ? 'none' : 'grid';
 
     lastMyColor = info.myColor;
     const colorText = info.started
       ? info.myColor === 1
-        ? "Black"
+        ? 'Black'
         : info.myColor === 2
-          ? "White"
-          : "-"
-      : "-";
+          ? 'White'
+          : '-'
+      : '-';
     colorLabel.innerHTML = `Color<br/><span>${colorText}</span>`;
-    const turnText = info.started ? `${info.currentTurn} (${info.currentPlayer === 1 ? "Black" : "White"})` : "-";
+    const turnText = info.started
+      ? `${info.currentTurn} (${info.currentPlayer === 1 ? 'Black' : 'White'})`
+      : '-';
     turnLabel.innerHTML = `Turn<br/><span>${turnText}</span>`;
-    const readyText = `${info.readySelf ? "You" : "You: wait"} / ${info.readyPeer ? "Peer" : "Peer: wait"}`;
+    const readyText = `${info.readySelf ? 'You' : 'You: wait'} / ${info.readyPeer ? 'Peer' : 'Peer: wait'}`;
     readyLabel.innerHTML = `Ready<br/><span>${readyText}</span>`;
-    cacheLabel.innerHTML = `Cache<br/><span>${info.hasCache ? "Yes" : "No"}</span>`;
+    cacheLabel.innerHTML = `Cache<br/><span>${info.hasCache ? 'Yes' : 'No'}</span>`;
 
     const canStart = info.connected && info.readyPeer && !info.started;
-    readyBtn.dataset.ready = info.readySelf ? "true" : "false";
-    readyBtn.textContent = info.readySelf ? "Cancel Ready" : "Ready";
+    readyBtn.dataset.ready = info.readySelf ? 'true' : 'false';
+    readyBtn.textContent = info.readySelf ? 'Cancel Ready' : 'Ready';
     readyBtn.disabled = !info.connected;
-    readyBtn.style.display = !info.started && !canStart ? "inline-flex" : "none";
+    readyBtn.style.display =
+      !info.started && !canStart ? 'inline-flex' : 'none';
     startBtn.disabled = !canStart;
-    startBtn.style.display = canStart ? "inline-flex" : "none";
-    const undoPending = undoBtn.dataset.pending === "true";
+    startBtn.style.display = canStart ? 'inline-flex' : 'none';
+    const undoPending = undoBtn.dataset.pending === 'true';
     undoBtn.disabled = !info.connected || !info.started || undoPending;
-    const restartPending = restartBtn.dataset.pending === "true";
-    restartBtn.style.display = info.started ? "inline-flex" : "none";
+    const restartPending = restartBtn.dataset.pending === 'true';
+    restartBtn.style.display = info.started ? 'inline-flex' : 'none';
     restartBtn.disabled = !info.connected || !info.started || restartPending;
     voiceAvailable = info.connected;
     refreshVoiceButton();
     void updateQr();
   };
 
-  panelRefs.gameSubtitle.addEventListener("click", async () => {
+  panelRefs.gameSubtitle.addEventListener('click', async () => {
     if (!lastPeerId) {
       return;
     }
@@ -365,68 +381,77 @@ export const createDesktopShellUi = (options?: { defaultSignalUrl?: string }): S
     }
   });
 
-  panelRefs.signalUrl.addEventListener("change", () => {
+  panelRefs.signalUrl.addEventListener('change', () => {
     panelRefs.root.dispatchEvent(
-      new CustomEvent("signalUrlChanged", {
+      new CustomEvent('signalUrlChanged', {
         detail: { url: panelRefs.signalUrl.value },
       }),
     );
     void updateQr();
   });
 
-  panelRefs.targetId.addEventListener("input", () => {
+  panelRefs.targetId.addEventListener('input', () => {
     const parsed = parseShareInput(panelRefs.targetId.value);
     if (parsed) {
       panelRefs.targetId.value = parsed.peerId;
       if (parsed.signalUrl) {
         panelRefs.signalUrl.value = parsed.signalUrl;
         panelRefs.root.dispatchEvent(
-          new CustomEvent("signalUrlChanged", { detail: { url: parsed.signalUrl } }),
+          new CustomEvent('signalUrlChanged', {
+            detail: { url: parsed.signalUrl },
+          }),
         );
       }
       void updateQr();
     }
   });
 
-  panelRefs.refreshButton.addEventListener("click", () => {
+  panelRefs.refreshButton.addEventListener('click', () => {
     panelRefs.root.dispatchEvent(
-      new CustomEvent("signalUrlChanged", {
+      new CustomEvent('signalUrlChanged', {
         detail: { url: panelRefs.signalUrl.value },
       }),
     );
   });
 
-  const shareLink = async (options: { peerId: string; signalUrl: string; title?: string }) => {
+  const shareLink = async (options: {
+    peerId: string;
+    signalUrl: string;
+    title?: string;
+  }) => {
     const { peerId, signalUrl, title } = options;
-    if (!peerId || peerId === "-") {
-      console.log("[desktop-shell] Register first to get a peer id.");
+    if (!peerId || peerId === '-') {
+      console.log('[desktop-shell] Register first to get a peer id.');
       return;
     }
     const shareUrl = buildShareUrl(peerId, signalUrl);
     try {
       if (window.isSecureContext && navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(shareUrl);
-        noticeBar.textContent = "Share link copied";
+        noticeBar.textContent = 'Share link copied';
         return;
       }
     } catch (err) {
       const error = err as { name?: string };
-      if (error?.name === "NotAllowedError" || error?.name === "SecurityError") {
-        window.prompt(title ?? "Copy link", shareUrl);
+      if (
+        error?.name === 'NotAllowedError' ||
+        error?.name === 'SecurityError'
+      ) {
+        window.prompt(title ?? 'Copy link', shareUrl);
       } else {
-        console.log("[desktop-shell] Share link copy failed", err);
+        console.log('[desktop-shell] Share link copy failed', err);
       }
       return;
     }
-    window.prompt(title ?? "Copy link", shareUrl);
+    window.prompt(title ?? 'Copy link', shareUrl);
   };
 
   const log = (message: string) => {
-    const entry = document.createElement("div");
+    const entry = document.createElement('div');
     entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
     logBody.prepend(entry);
-    if (logPanel.classList.contains("hidden")) {
-      logPanel.classList.remove("hidden");
+    if (logPanel.classList.contains('hidden')) {
+      logPanel.classList.remove('hidden');
     }
   };
 
@@ -442,8 +467,8 @@ export const createDesktopShellUi = (options?: { defaultSignalUrl?: string }): S
     },
     controls: {
       bindEvents: (events) => {
-        readyBtn.addEventListener("click", async () => {
-          const ready = readyBtn.dataset.ready === "true";
+        readyBtn.addEventListener('click', async () => {
+          const ready = readyBtn.dataset.ready === 'true';
           readyBtn.disabled = true;
           try {
             await events.onReady(!ready);
@@ -451,7 +476,7 @@ export const createDesktopShellUi = (options?: { defaultSignalUrl?: string }): S
             readyBtn.disabled = false;
           }
         });
-        startBtn.addEventListener("click", async () => {
+        startBtn.addEventListener('click', async () => {
           startBtn.disabled = true;
           try {
             await events.onStart();
@@ -459,34 +484,34 @@ export const createDesktopShellUi = (options?: { defaultSignalUrl?: string }): S
             startBtn.disabled = false;
           }
         });
-        undoBtn.addEventListener("click", async () => {
-          if (undoBtn.dataset.pending === "true") {
+        undoBtn.addEventListener('click', async () => {
+          if (undoBtn.dataset.pending === 'true') {
             return;
           }
-          undoBtn.dataset.pending = "true";
+          undoBtn.dataset.pending = 'true';
           undoBtn.disabled = true;
           try {
             await events.onUndo();
           } finally {
-            undoBtn.dataset.pending = "false";
+            undoBtn.dataset.pending = 'false';
           }
         });
-        restartBtn.addEventListener("click", async () => {
-          if (restartBtn.dataset.pending === "true") {
+        restartBtn.addEventListener('click', async () => {
+          if (restartBtn.dataset.pending === 'true') {
             return;
           }
-          restartBtn.dataset.pending = "true";
+          restartBtn.dataset.pending = 'true';
           restartBtn.disabled = true;
           try {
             await events.onRestart();
           } finally {
-            restartBtn.dataset.pending = "false";
+            restartBtn.dataset.pending = 'false';
           }
         });
         if (events.onToggleVoice) {
           voiceActionBound = true;
           refreshVoiceButton();
-          voiceBtn.addEventListener("click", async () => {
+          voiceBtn.addEventListener('click', async () => {
             await events.onToggleVoice?.();
           });
         }
@@ -496,17 +521,19 @@ export const createDesktopShellUi = (options?: { defaultSignalUrl?: string }): S
     shareLink,
     getPeerId: () => lastPeerId,
     log,
-    promptUndo: () => modal.ask("Opponent requests an undo. Allow?"),
-    promptRestart: () => modal.ask("Opponent requests a restart. Allow?"),
+    promptUndo: () => modal.ask('Opponent requests an undo. Allow?'),
+    promptRestart: () => modal.ask('Opponent requests a restart. Allow?'),
     promptRejoinChoice: () =>
-      modal.ask("Resume previous match?", "Rejoin", "Restart").then((ok) => (ok ? "rejoin" : "restart")),
-    promptRejoinApprove: () => modal.ask("Opponent requests a rejoin. Allow?"),
+      modal
+        .ask('Resume previous match?', 'Rejoin', 'Restart')
+        .then((ok) => (ok ? 'rejoin' : 'restart')),
+    promptRejoinApprove: () => modal.ask('Opponent requests a rejoin. Allow?'),
     showStart: () => {
-      noticeBar.textContent = "Match started";
+      noticeBar.textContent = 'Match started';
     },
     showWinner: (winner) => {
       if (winner === 0) {
-        noticeBar.textContent = "Draw";
+        noticeBar.textContent = 'Draw';
         return;
       }
       noticeBar.textContent = winner === lastMyColor ? 'You win' : 'You lose';

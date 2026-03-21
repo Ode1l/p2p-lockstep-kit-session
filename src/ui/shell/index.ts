@@ -1,4 +1,4 @@
-export { createShell } from "./shell";
+export { createShell } from './shell';
 export type {
   IGamePlugin,
   IGameSession,
@@ -7,5 +7,5 @@ export type {
   GameStatus,
   IRuleGuard,
   IRuleGuardResult,
-} from "../../session";
-export type { ShellUi, VoiceUiState } from "../types";
+} from '../../session';
+export type { ShellUi, VoiceUiState } from '../types';

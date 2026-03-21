@@ -1,14 +1,14 @@
 export type SessionMessageType =
-  | "READY"
-  | "START"
-  | "MOVE"
-  | "UNDO"
-  | "RESTART"
-  | "APPROVE"
-  | "REJECT"
-  | "REJOIN"
-  | "SYNC_REQUEST"
-  | "SYNC_STATE";
+  | 'READY'
+  | 'START'
+  | 'MOVE'
+  | 'UNDO'
+  | 'RESTART'
+  | 'APPROVE'
+  | 'REJECT'
+  | 'REJOIN'
+  | 'SYNC_REQUEST'
+  | 'SYNC_STATE';
 
 export type SessionMessage = {
   type: SessionMessageType;
@@ -18,4 +18,4 @@ export type SessionMessage = {
   turn?: number;
   stateHash?: string;
   payload?: any;
-}
+};

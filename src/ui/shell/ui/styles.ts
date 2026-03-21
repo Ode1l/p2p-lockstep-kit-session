@@ -1,5 +1,5 @@
 export const createStyles = () => {
-  const style = document.createElement("style");
+  const style = document.createElement('style');
   style.textContent = `
     :root {
       color-scheme: light;

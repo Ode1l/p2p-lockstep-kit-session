@@ -1,56 +1,48 @@
-import { SessionFsm, SessionState, SessionEvent } from './fsm';
+import { SessionEvent, SessionFsm, SessionState } from './fsm';
 
 export type TurnEntry = {
   turn: number;
-  player: 'self' | 'peer';
+  player: 'local' | 'remote';
   move?: any;
 };
 
-export type PlayerLabel = "self" | "peer";
-export type TurnSide = "local" | "remote";
-export type TurnStateLabel = "my_turn" | "peer_turn";
+export type PlayerLabel = 'local' | 'remote';
+export type TurnSide = 'local' | 'remote';
+export type TurnStateLabel = 'my_turn' | 'remote_turn';
 
 export class State {
-  private self = new SessionFsm('idle');
-  private peer = new SessionFsm('idle');
-  private readonly selfId: string | null = null;
-  private peerId: string | null = null;
+  private local = new SessionFsm('idle');
+  private remote = new SessionFsm('idle');
+  private readonly localId: string | null = null;
+  private remoteId: string | null = null;
   private readonly history: TurnEntry[] = [];
   private pendingAction: 'undo' | 'restart' | null = null;
   private lastStart: PlayerLabel | null = null;
   private resumeTurn: PlayerLabel | null = null;
 
-  constructor(id: string | null, peerId: string | null) {
+  constructor(id: string | null, remoteId: string | null) {
     if (id) {
-      this.selfId = id;
+      this.localId = id;
     }
-    if (peerId) {
-      this.peerId = peerId;
+    if (remoteId) {
+      this.remoteId = remoteId;
     }
   }
 
-  public setPeerId(id: string) {
-    this.peerId = id;
+  public setremoteId(id: string) {
+    this.remoteId = id;
   }
 
   public getId(): string | null {
-    return this.selfId;
+    return this.localId;
   }
 
-  public getPeerId(): string | null {
-    return this.peerId;
-  }
-
-  private getPlayer(player: PlayerLabel): SessionFsm {
-    return player === 'self' ? this.self : this.peer;
-  }
-
-  private reversePlayer(player: PlayerLabel): PlayerLabel {
-    return player === 'self' ? 'peer' : 'self';
+  public getremoteId(): string | null {
+    return this.remoteId;
   }
 
   public resolveSide(side: TurnSide): PlayerLabel {
-    return side === 'local' ? 'self' : 'peer';
+    return side === 'local' ? 'local' : 'remote';
   }
 
   public getState(player: PlayerLabel): SessionState {
@@ -65,9 +57,7 @@ export class State {
     return this.history.slice();
   }
 
-  public replaceHistory(
-    entries: { turn: number; player: string; move: any }[],
-  ): void {
+  public replaceHistory(entries: TurnEntry[]): void {
     this.clearHistory();
     entries.forEach((entry) => {
       entry.player = this.reversePlayer(entry.player);
@@ -130,13 +120,13 @@ export class State {
   public getAvailableActions(player: PlayerLabel): SessionEvent[] {
     const candidates: SessionEvent[] = [
       'READY',
-      'PEER_READY',
+      'REMOTE_READY',
       'START',
-      'PEER_START',
+      'REMOTE_START',
       'MOVE',
-      'PEER_MOVE',
+      'REMOTE_MOVE',
       'UNDO',
-      'PEER_UNDO',
+      'REMOTE_UNDO',
       'APPROVE',
       'REJECT',
       'GAME_OVER',
@@ -146,5 +136,13 @@ export class State {
       'RESTART',
     ];
     return candidates.filter((action) => this.canAction(player, action));
+  }
+
+  private getPlayer(player: PlayerLabel): SessionFsm {
+    return player === 'local' ? this.local : this.remote;
+  }
+
+  private reversePlayer(player: PlayerLabel): PlayerLabel {
+    return player === 'local' ? 'remote' : 'local';
   }
 }

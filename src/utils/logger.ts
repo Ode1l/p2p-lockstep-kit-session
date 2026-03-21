@@ -5,7 +5,8 @@ export type Logger = {
   error: (message: string, meta?: unknown) => void;
 };
 
-const logWith = (level: "debug" | "info" | "warn" | "error") =>
+const logWith =
+  (level: 'debug' | 'info' | 'warn' | 'error') =>
   (message: string, meta?: unknown) => {
     if (meta !== undefined) {
       // eslint-disable-next-line no-console
@@ -17,8 +18,8 @@ const logWith = (level: "debug" | "info" | "warn" | "error") =>
   };
 
 export const consoleLogger: Logger = {
-  debug: logWith("debug"),
-  info: logWith("info"),
-  warn: logWith("warn"),
-  error: logWith("error"),
+  debug: logWith('debug'),
+  info: logWith('info'),
+  warn: logWith('warn'),
+  error: logWith('error'),
 };

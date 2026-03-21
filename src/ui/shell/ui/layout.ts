@@ -1,4 +1,4 @@
-import type { PanelRefs } from "./panel";
+import type { PanelRefs } from './panel';
 
 export type ShellLayout = {
   container: HTMLDivElement;
@@ -32,26 +32,26 @@ export type ShellLayout = {
 };
 
 export const createShellLayout = (panel: { refs: PanelRefs }): ShellLayout => {
-  const container = document.createElement("div");
-  container.className = "app";
-  const boardColumn = document.createElement("div");
-  boardColumn.className = "board-column";
-  const boardWrap = document.createElement("div");
-  boardWrap.className = "board-wrapper";
-  const startOverlay = document.createElement("div");
-  startOverlay.className = "start-overlay";
-  startOverlay.textContent = "Start";
+  const container = document.createElement('div');
+  container.className = 'app';
+  const boardColumn = document.createElement('div');
+  boardColumn.className = 'board-column';
+  const boardWrap = document.createElement('div');
+  boardWrap.className = 'board-wrapper';
+  const startOverlay = document.createElement('div');
+  startOverlay.className = 'start-overlay';
+  startOverlay.textContent = 'Start';
   boardWrap.append(startOverlay);
 
-  const statusRow = document.createElement("div");
-  statusRow.className = "match-status";
+  const statusRow = document.createElement('div');
+  statusRow.className = 'match-status';
   statusRow.innerHTML = `
     <span id="statusColor">Color: -</span>
     <span id="statusTurn">Turn: -</span>
   `;
 
-  const requestBar = document.createElement("div");
-  requestBar.className = "match-request";
+  const requestBar = document.createElement('div');
+  requestBar.className = 'match-request';
   requestBar.innerHTML = `
     <div class="match-request-card">
       <div id="requestText">Request</div>
@@ -62,8 +62,8 @@ export const createShellLayout = (panel: { refs: PanelRefs }): ShellLayout => {
     </div>
   `;
 
-  const winnerModal = document.createElement("div");
-  winnerModal.className = "match-request";
+  const winnerModal = document.createElement('div');
+  winnerModal.className = 'match-request';
   winnerModal.innerHTML = `
     <div class="match-request-card">
       <div id="winnerText">Winner</div>
@@ -73,8 +73,8 @@ export const createShellLayout = (panel: { refs: PanelRefs }): ShellLayout => {
     </div>
   `;
 
-  const actionsRow = document.createElement("div");
-  actionsRow.className = "match-actions";
+  const actionsRow = document.createElement('div');
+  actionsRow.className = 'match-actions';
   actionsRow.innerHTML = `
     <button id="readyBtn" class="btn btn-primary">Ready</button>
     <button id="startBtn" class="btn btn-primary">Start</button>
@@ -88,32 +88,32 @@ export const createShellLayout = (panel: { refs: PanelRefs }): ShellLayout => {
   document.body.append(requestBar);
   document.body.append(winnerModal);
 
-  const remoteAudio = document.createElement("audio");
+  const remoteAudio = document.createElement('audio');
   remoteAudio.autoplay = true;
-  remoteAudio.setAttribute("playsinline", "true");
+  remoteAudio.setAttribute('playsinline', 'true');
   remoteAudio.controls = false;
-  remoteAudio.style.display = "none";
+  remoteAudio.style.display = 'none';
   document.body.append(remoteAudio);
 
-  statusRow.style.order = "1";
-  boardWrap.style.order = "2";
-  actionsRow.style.order = "3";
+  statusRow.style.order = '1';
+  boardWrap.style.order = '2';
+  actionsRow.style.order = '3';
 
-  const logPanel = document.createElement("div");
-  logPanel.className = "debug-log hidden";
+  const logPanel = document.createElement('div');
+  logPanel.className = 'debug-log hidden';
   logPanel.innerHTML = `
     <div class="debug-title">Debug</div>
     <div class="debug-body"></div>
   `;
   document.body.append(logPanel);
-  const logBody = logPanel.querySelector(".debug-body") as HTMLDivElement;
+  const logBody = logPanel.querySelector('.debug-body') as HTMLDivElement;
 
-  const noticeToast = document.createElement("div");
-  noticeToast.className = "notice-toast";
+  const noticeToast = document.createElement('div');
+  noticeToast.className = 'notice-toast';
   document.body.append(noticeToast);
 
-  const configModal = document.createElement("div");
-  configModal.className = "config-modal hidden";
+  const configModal = document.createElement('div');
+  configModal.className = 'config-modal hidden';
   configModal.innerHTML = `
     <div class="config-card">
       <div class="config-title">Connection</div>
@@ -129,22 +129,36 @@ export const createShellLayout = (panel: { refs: PanelRefs }): ShellLayout => {
   `;
   document.body.append(configModal);
 
-  const configInput = configModal.querySelector("#configSignalUrl") as HTMLInputElement;
-  const configSave = configModal.querySelector("#configSave") as HTMLButtonElement;
-  const configCancel = configModal.querySelector("#configCancel") as HTMLButtonElement;
+  const configInput = configModal.querySelector(
+    '#configSignalUrl',
+  ) as HTMLInputElement;
+  const configSave = configModal.querySelector(
+    '#configSave',
+  ) as HTMLButtonElement;
+  const configCancel = configModal.querySelector(
+    '#configCancel',
+  ) as HTMLButtonElement;
 
-  const statusColor = statusRow.querySelector("#statusColor") as HTMLSpanElement;
-  const statusTurn = statusRow.querySelector("#statusTurn") as HTMLSpanElement;
-  const readyBtn = actionsRow.querySelector("#readyBtn") as HTMLButtonElement;
-  const startBtn = actionsRow.querySelector("#startBtn") as HTMLButtonElement;
-  const undoBtn = actionsRow.querySelector("#undoBtn") as HTMLButtonElement;
-  const restartBtn = actionsRow.querySelector("#restartBtn") as HTMLButtonElement;
-  const voiceBtn = actionsRow.querySelector("#voiceBtn") as HTMLButtonElement;
-  const requestText = requestBar.querySelector("#requestText") as HTMLSpanElement;
-  const requestYes = requestBar.querySelector("#requestYes") as HTMLButtonElement;
-  const requestNo = requestBar.querySelector("#requestNo") as HTMLButtonElement;
-  const winnerText = winnerModal.querySelector("#winnerText") as HTMLDivElement;
-  const winnerOk = winnerModal.querySelector("#winnerOk") as HTMLButtonElement;
+  const statusColor = statusRow.querySelector(
+    '#statusColor',
+  ) as HTMLSpanElement;
+  const statusTurn = statusRow.querySelector('#statusTurn') as HTMLSpanElement;
+  const readyBtn = actionsRow.querySelector('#readyBtn') as HTMLButtonElement;
+  const startBtn = actionsRow.querySelector('#startBtn') as HTMLButtonElement;
+  const undoBtn = actionsRow.querySelector('#undoBtn') as HTMLButtonElement;
+  const restartBtn = actionsRow.querySelector(
+    '#restartBtn',
+  ) as HTMLButtonElement;
+  const voiceBtn = actionsRow.querySelector('#voiceBtn') as HTMLButtonElement;
+  const requestText = requestBar.querySelector(
+    '#requestText',
+  ) as HTMLSpanElement;
+  const requestYes = requestBar.querySelector(
+    '#requestYes',
+  ) as HTMLButtonElement;
+  const requestNo = requestBar.querySelector('#requestNo') as HTMLButtonElement;
+  const winnerText = winnerModal.querySelector('#winnerText') as HTMLDivElement;
+  const winnerOk = winnerModal.querySelector('#winnerOk') as HTMLButtonElement;
 
   return {
     container,

@@ -27,7 +27,6 @@ export const start: CommandListener = (command) => {
     state.setLastStart(starter);
     send({
       type: 'START',
-      from: '',
       payload: { starter: starter === 'local' ? 'sender' : 'receiver' },
     });
     return;

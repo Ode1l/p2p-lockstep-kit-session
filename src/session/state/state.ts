@@ -15,6 +15,7 @@ export class State {
   private remoteId: string | null = null;
   private readonly history: TurnEntry[] = [];
   private pendingAction: 'undo' | 'restart' | null = null;
+  private pendingUndoCount: 1 | 2 | null = null;
   private lastStart: PlayerLabel | null = null;
   private resumeTurn: PlayerLabel | null = null;
 
@@ -54,8 +55,11 @@ export class State {
   public replaceHistory(entries: TurnEntry[]): void {
     this.clearHistory();
     entries.forEach((entry) => {
-      entry.player = this.reversePlayer(entry.player);
-      this.pushHistory(entry);
+      this.pushHistory({
+        turn: entry.turn,
+        player: this.reversePlayer(entry.player),
+        move: entry.move,
+      });
     });
   }
 
@@ -95,6 +99,14 @@ export class State {
     return this.pendingAction;
   }
 
+  public setPendingUndoCount(count: 1 | 2 | null) {
+    this.pendingUndoCount = count;
+  }
+
+  public getPendingUndoCount(): 1 | 2 | null {
+    return this.pendingUndoCount;
+  }
+
   public setLastStart(player: PlayerLabel | null) {
     this.lastStart = player;
   }
@@ -128,6 +140,9 @@ export class State {
       'SYNC',
       'SYNC_COMPLETE',
       'RESTART',
+      'REMOTE_RESTART',
+      'OFFLINE',
+      'ONLINE',
     ];
     return candidates.filter((action) => this.canAction(player, action));
   }

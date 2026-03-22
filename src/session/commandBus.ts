@@ -2,13 +2,17 @@ import { SessionMessage, SessionMessageType } from '../utils';
 
 export type CommandOrigin = 'local' | 'remote';
 
-export type CommandListener = (message: SessionMessage) => Promise<void> | void;
+export type BusMessageType = SessionMessageType | 'OFFLINE' | 'ONLINE';
+
+export type BusMessage = Omit<SessionMessage, 'type'> & { type: BusMessageType };
+
+export type CommandListener = (message: BusMessage) => Promise<void> | void;
 
 export class CommandBus {
   private readonly listeners = new Map<string, Set<CommandListener>>();
 
   public emit(
-    type: SessionMessageType,
+    type: BusMessageType,
     payload?: unknown,
     from: CommandOrigin = 'local',
   ): void {
@@ -26,7 +30,7 @@ export class CommandBus {
     set?.delete(listener);
   }
 
-  public dispatch(message: SessionMessage): void {
+  public dispatch(message: BusMessage): void {
     const wildcards = this.listeners.get('*') ?? new Set();
     for (const listener of wildcards) {
       void listener(message);

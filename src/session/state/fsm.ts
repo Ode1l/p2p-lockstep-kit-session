@@ -6,7 +6,8 @@ export type SessionState =
   | 'remote_turn'
   | 'approving'
   | 'waiting_approval'
-  | 'syncing';
+  | 'syncing'
+  | 'offline';
 
 export type SessionEvent =
   | 'REMOTE_READY'
@@ -24,7 +25,9 @@ export type SessionEvent =
   | 'GAME_OVER'
   | 'REJOIN'
   | 'SYNC'
-  | 'SYNC_COMPLETE';
+  | 'SYNC_COMPLETE'
+  | 'OFFLINE'
+  | 'ONLINE';
 
 export type Transition = {
   from: SessionState;
@@ -89,6 +92,17 @@ const transitions: Transition[] = [
   { from: 'could_start', event: 'SYNC', to: 'syncing' },
   { from: 'syncing', event: 'SYNC_COMPLETE', to: 'local_turn' },
   { from: 'syncing', event: 'SYNC_COMPLETE', to: 'remote_turn' },
+
+  // Connection state
+  { from: 'idle', event: 'OFFLINE', to: 'offline' },
+  { from: 'ready', event: 'OFFLINE', to: 'offline' },
+  { from: 'could_start', event: 'OFFLINE', to: 'offline' },
+  { from: 'local_turn', event: 'OFFLINE', to: 'offline' },
+  { from: 'remote_turn', event: 'OFFLINE', to: 'offline' },
+  { from: 'waiting_approval', event: 'OFFLINE', to: 'offline' },
+  { from: 'approving', event: 'OFFLINE', to: 'offline' },
+  { from: 'syncing', event: 'OFFLINE', to: 'offline' },
+  { from: 'offline', event: 'ONLINE', to: 'syncing' },
 ];
 
 const nextState = (

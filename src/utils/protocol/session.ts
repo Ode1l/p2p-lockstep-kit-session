@@ -8,7 +8,9 @@ export type SessionMessageType =
   | 'REJECT'
   | 'REJOIN'
   | 'SYNC_REQUEST'
-  | 'SYNC_STATE';
+  | 'SYNC_STATE'
+  | 'OFFLINE'
+  | 'ONLINE';
 
 export type SessionMessage = {
   type: SessionMessageType;

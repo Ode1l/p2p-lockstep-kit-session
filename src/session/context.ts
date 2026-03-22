@@ -1,15 +1,15 @@
 import type { State } from './state/state';
 import type { CommandBus } from './commandBus';
 import type { SessionMessage } from '../utils';
-import { net } from './net';
+import { NetClient } from './net';
 
 class SessionContext {
   private state: State;
   private bus: CommandBus;
-  private net: net;
+  private net: NetClient;
   private sid?: string;
 
-  constructor(state: State, bus: CommandBus, net: net, sid?: string) {
+  constructor(state: State, bus: CommandBus, net: NetClient, sid?: string) {
     this.state = state;
     this.bus = bus;
     this.net = net;
@@ -38,7 +38,7 @@ let instance: SessionContext | null = null;
 export const initializeContext = (
   state: State,
   bus: CommandBus,
-  net: net,
+  net: NetClient,
   sid?: string,
 ) => {
   instance = new SessionContext(state, bus, net, sid);

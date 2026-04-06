@@ -1,4 +1,6 @@
 import { SessionEvent, SessionFsm, SessionState } from './fsm';
+import type { IGamePlugin, GameState, ValidationResult } from '../plugins';
+import { DefaultGamePlugin } from '../plugins';
 
 export type TurnEntry = {
   turn: number;
@@ -9,15 +11,22 @@ export type TurnEntry = {
 export type PlayerLabel = 'local' | 'remote';
 
 export class State {
+  // will update map when multi-players (>=3)
   private local = new SessionFsm('idle');
   private remote = new SessionFsm('idle');
+  // for compare remote is same people or not
   private readonly localId: string | null = null;
   private remoteId: string | null = null;
+  // store all actions
   private readonly history: TurnEntry[] = [];
+  // pending some state
   private pendingAction: 'undo' | 'restart' | null = null;
   private pendingUndoCount: 1 | 2 | null = null;
-  private lastStart: PlayerLabel | null = null;
   private resumeTurn: PlayerLabel | null = null;
+  private lastStart: PlayerLabel | null = null;
+
+  // Game plugin for rule validation and win checking
+  private gamePlugin: IGamePlugin = new DefaultGamePlugin();
 
   constructor(id: string | null, remoteId: string | null) {
     if (id) {
@@ -28,9 +37,7 @@ export class State {
     }
   }
 
-  public setremoteId(id: string) {
-    this.remoteId = id;
-  }
+  // ...existing code...
 
   public getId(): string | null {
     return this.localId;
@@ -40,8 +47,12 @@ export class State {
     return this.remoteId;
   }
 
+  public setremoteId(id: string) {
+    this.remoteId = id;
+  }
+
   public getState(player: PlayerLabel): SessionState {
-    return this.getPlayer(player).getState();
+    return this.getPlayerFsm(player).getState();
   }
 
   public getTurnCount(): number {
@@ -57,7 +68,7 @@ export class State {
     entries.forEach((entry) => {
       this.pushHistory({
         turn: entry.turn,
-        player: this.reversePlayer(entry.player),
+        player: entry.player,
         move: entry.move,
       });
     });
@@ -78,17 +89,23 @@ export class State {
   public canAction(
     player: PlayerLabel,
     action: SessionEvent,
-    to?: SessionState,
   ): boolean {
-    return this.getPlayer(player).hasNextState(action, to); // todo resolve diff type of to
+    return this.getPlayerFsm(player).hasNextState(action);
   }
 
+  /**
+   * Dispatch an action and automatically determine target state if unique
+   * Only use explicit 'to' parameter for ambiguous transitions (APPROVE, REJECT, etc.)
+   *
+   * For most actions (READY, MOVE, START, etc.), there's only one valid transition,
+   * so we automatically find and apply it.
+   */
   public dispatch(
     player: PlayerLabel,
     action: SessionEvent,
     to?: SessionState,
   ): void {
-    this.getPlayer(player).dispatch(action, to); // todo resolve diff type of to
+    this.getPlayerFsm(player).dispatch(action, to);
   }
 
   public setPendingAction(action: 'undo' | 'restart' | null) {
@@ -123,35 +140,236 @@ export class State {
     return this.resumeTurn;
   }
 
-  public getAvailableActions(player: PlayerLabel): SessionEvent[] {
-    const candidates: SessionEvent[] = [
-      'READY',
-      'REMOTE_READY',
-      'START',
-      'REMOTE_START',
-      'MOVE',
-      'REMOTE_MOVE',
-      'UNDO',
-      'REMOTE_UNDO',
-      'APPROVE',
-      'REJECT',
-      'GAME_OVER',
-      'REJOIN',
-      'SYNC',
-      'SYNC_COMPLETE',
-      'RESTART',
-      'REMOTE_RESTART',
-      'OFFLINE',
-      'ONLINE',
-    ];
-    return candidates.filter((action) => this.canAction(player, action));
-  }
-
-  private getPlayer(player: PlayerLabel): SessionFsm {
+  private getPlayerFsm(player: PlayerLabel): SessionFsm {
     return player === 'local' ? this.local : this.remote;
   }
 
-  private reversePlayer(player: PlayerLabel): PlayerLabel {
-    return player === 'local' ? 'remote' : 'local';
+  // ===== Helper Methods for Undo/Restart Request Handling =====
+
+  /**
+   * Save game state snapshot for undo/restart operations
+   */
+  private gameSnapshot: unknown = null;
+
+  public saveGameSnapshot(snapshot: unknown): void {
+    this.gameSnapshot = snapshot;
+  }
+
+  public getGameSnapshot(): unknown {
+    return this.gameSnapshot;
+  }
+
+  public clearGameSnapshot(): void {
+    this.gameSnapshot = null;
+  }
+
+  /**
+   * Check if there's a pending action (undo/restart)
+   */
+  public hasPendingAction(): boolean {
+    return this.pendingAction !== null;
+  }
+
+  /**
+   * Clear all pending states (called after approval/rejection)
+   */
+  public clearPendingStates(): void {
+    this.pendingAction = null;
+    this.pendingUndoCount = null;
+    this.resumeTurn = null;
+  }
+
+  /**
+   * Initialize undo request with undo count and current turn holder
+   */
+  public initializeUndoRequest(undoCount: 1 | 2, resumeTurn: PlayerLabel): void {
+    this.pendingAction = 'undo';
+    this.pendingUndoCount = undoCount;
+    this.resumeTurn = resumeTurn;
+  }
+
+  /**
+   * Initialize restart request with resume turn
+   */
+  public initializeRestartRequest(resumeTurn: PlayerLabel): void {
+    this.pendingAction = 'restart';
+    this.resumeTurn = resumeTurn;
+  }
+
+  /**
+   * Check if pending action is undo
+   */
+  public isPendingUndo(): boolean {
+    return this.pendingAction === 'undo';
+  }
+
+  /**
+   * Check if pending action is restart
+   */
+  public isPendingRestart(): boolean {
+    return this.pendingAction === 'restart';
+  }
+
+  /**
+   * Apply undo by popping history N times
+   */
+  public applyUndo(count: 1 | 2 = 1): void {
+    for (let i = 0; i < count; i++) {
+      this.popHistory();
+    }
+  }
+
+  /**
+   * Reset game state to initial (for restart)
+   */
+  public resetGame(): void {
+    this.clearHistory();
+    this.local = new SessionFsm('idle');
+    this.remote = new SessionFsm('idle');
+    this.lastStart = null;
+    this.resumeTurn = null;
+  }
+
+  /**
+   * Save start player for rejoin flow
+   */
+  public recordStartPlayer(player: PlayerLabel): void {
+    this.lastStart = player;
+  }
+
+  /**
+   * Get move to undo from history
+   */
+  public getLastMove(): TurnEntry | null {
+    return this.history.length > 0 ? this.history[this.history.length - 1] : null;
+  }
+
+  // ===== Specialized FSM Dispatch Methods =====
+
+  /**
+   * Dispatch APPROVE action with automatic target state resolution
+   * Multiple valid transitions exist - use state context to determine target
+   */
+  public dispatchApprove(): void {
+    const localState = this.local.getState();
+    if (localState === 'waiting_approval') {
+      // Local was waiting, always go back to turn
+      this.local.dispatch('APPROVE', 'turn');
+      this.remote.dispatch('APPROVE', 'turn');
+    } else if (localState === 'approving') {
+      // Local was confirming, peer takes turn
+      this.local.dispatch('APPROVE', 'remote_turn');
+      this.remote.dispatch('APPROVE', 'remote_turn');
+    }
+  }
+
+  /**
+   * Dispatch REJECT action with automatic target state resolution
+   * Multiple valid transitions exist - use resumeTurn to determine who continues
+   */
+  public dispatchReject(): void {
+    const localState = this.local.getState();
+
+    if (localState === 'waiting_approval' || localState === 'approving') {
+      // resumeTurn tells us who should have turn after rejection
+      const targetState = this.resumeTurn === 'local' ? 'turn' : 'remote_turn';
+      this.local.dispatch('REJECT', targetState);
+      this.remote.dispatch('REJECT', targetState);
+    }
+  }
+
+  /**
+   * Dispatch START action with automatic target state resolution
+   * Determines who plays first based on starter parameter
+   */
+  public dispatchStart(firstPlayer: PlayerLabel): void {
+    if (firstPlayer === 'local') {
+      this.local.dispatch('START', 'turn');
+      this.remote.dispatch('START', 'remote_turn');
+      this.lastStart = 'local';
+    } else {
+      this.local.dispatch('START', 'remote_turn');
+      this.remote.dispatch('START', 'turn');
+      this.lastStart = 'remote';
+    }
+  }
+
+  /**
+   * Dispatch SYNC_COMPLETE with automatic target state resolution
+   * Based on who should have the turn after sync
+   */
+  public dispatchSyncComplete(nextPlayer: PlayerLabel): void {
+    if (nextPlayer === 'local') {
+      this.local.dispatch('SYNC_COMPLETE', 'turn');
+      this.remote.dispatch('SYNC_COMPLETE', 'remote_turn');
+    } else {
+      this.local.dispatch('SYNC_COMPLETE', 'remote_turn');
+      this.remote.dispatch('SYNC_COMPLETE', 'turn');
+    }
+    this.resumeTurn = nextPlayer;
+  }
+
+  // ===== Game Plugin Integration (Proxy Pattern) =====
+
+  /**
+   * Set the game plugin for rule validation and win checking
+   * @param plugin Implementation of IGamePlugin
+   */
+  public setGamePlugin(plugin: IGamePlugin): void {
+    this.gamePlugin = plugin;
+    if (plugin.initialize) {
+      plugin.initialize();
+    }
+  }
+
+  /**
+   * Get current game plugin
+   */
+  public getGamePlugin(): IGamePlugin {
+    return this.gamePlugin;
+  }
+
+  /**
+   * Validate a move using the game plugin
+   * Called by move handler to check if move is legal
+   * @param move The move data to validate
+   * @returns Validation result with reason if invalid
+   */
+  public validateMove(move: unknown): ValidationResult {
+    const gameState = this.buildGameState();
+    return this.gamePlugin.validateMove(move, gameState);
+  }
+
+  /**
+   * Check if game has ended (someone won)
+   * Called by move handler after move is applied
+   * @returns Winner (local/remote) or null if game continues
+   */
+  public checkWin(): PlayerLabel | null {
+    const gameState = this.buildGameState();
+    return this.gamePlugin.checkWin(gameState, this.getHistory());
+  }
+
+  /**
+   * Cleanup when game ends (for plugin to reset internal state)
+   */
+  public cleanupGame(): void {
+    if (this.gamePlugin.cleanup) {
+      this.gamePlugin.cleanup();
+    }
+  }
+
+  /**
+   * Build game state for plugin
+   * @private
+   */
+  private buildGameState(): GameState {
+    return {
+      history: this.getHistory(),
+      localState: this.getState('local'),
+      remoteState: this.getState('remote'),
+      turn: this.getTurnCount(),
+      lastStart: this.getLastStart(),
+    };
   }
 }

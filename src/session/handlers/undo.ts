@@ -1,66 +1,91 @@
 import type { CommandListener } from '../commandBus';
 import { getState, send } from '../context';
 
-const sendUndoReject = (reason: string) => {
-  send({ type: 'REJECT', payload: { action: 'undo', reason } });
-};
-
-const getTurnLabel = () =>
-  getState().getState('local') === 'local_turn' ? 'local' : 'remote';
-
+/**
+ * Handle undo request from local or remote player
+ *
+ * Validates undo is legal (enough history, no pending action, valid state)
+ * and initiates undo request with peer approval flow.
+ *
+ * Determines undo count (1 or 2 moves) based on current turn holder.
+ * Records pending undo state for approval/rejection handling by request handler.
+ */
 export const undo: CommandListener = (command) => {
   if (command.type !== 'UNDO') {
     return;
   }
+
   const state = getState();
 
   if (command.from === 'local') {
-    if (state.getPendingAction()) {
+    // Validate no pending action
+    if (state.hasPendingAction()) {
       return;
     }
-    const canSelf = state.canAction('local', 'UNDO');
-    const canPeer = state.canAction('remote', 'REMOTE_UNDO');
-    if (!canSelf || !canPeer) {
+
+    // Validate state transitions
+    if (!state.canAction('local', 'UNDO')) {
+      console.warn('[Undo] Cannot UNDO from current state');
       return;
     }
-    const historyLength = state.getHistory().length;
+
+    // Determine undo count based on whose turn it is
     const localState = state.getState('local');
-    const count: 1 | 2 = localState === 'local_turn' ? 2 : 1;
-    if (historyLength < count) {
+    const undoCount = localState === 'turn' ? 1 : 2;
+
+    // Validate history is long enough
+    if (state.getHistory().length < undoCount) {
+      console.warn('[Undo] Not enough history to undo', { count: undoCount });
       return;
     }
-    state.setPendingAction('undo');
-    state.setPendingUndoCount(count);
-    state.setResumeTurn(localState === 'local_turn' ? 'local' : 'remote');
+
+    // Initialize pending undo state
+    state.initializeUndoRequest(undoCount as 1 | 2, 'local');
+
+    // Transition to approval waiting state
     state.dispatch('local', 'UNDO');
     state.dispatch('remote', 'REMOTE_UNDO');
-    send({ type: 'UNDO', payload: { count } });
+
+    send({ type: 'UNDO', payload: { count: undoCount } });
     return;
   }
 
-  if (state.getPendingAction()) {
-    sendUndoReject('busy');
+  // Remote player requested undo
+  if (state.hasPendingAction()) {
+    send({ type: 'REJECT', payload: { action: 'undo', reason: 'busy' } });
     return;
   }
-  const canSelf = state.canAction('local', 'REMOTE_UNDO');
-  const canPeer = state.canAction('remote', 'UNDO');
-  if (!canSelf || !canPeer) {
-    sendUndoReject('invalid_state');
+
+  // Validate state transitions
+  if (!state.canAction('local', 'REMOTE_UNDO')) {
+    console.warn('[Undo] Cannot accept remote UNDO request');
+    send({ type: 'REJECT', payload: { action: 'undo', reason: 'invalid_state' } });
     return;
   }
-  const payload = (command.payload as { count?: number }) ?? {};
-  const count = payload.count === 2 ? 2 : 1;
-  if (payload.count && payload.count !== 1 && payload.count !== 2) {
-    sendUndoReject('invalid');
+
+  // Extract undo count from payload
+  const payload = command.payload as { count?: number } | undefined;
+  const count = payload?.count === 2 ? 2 : 1;
+
+  // Validate count value
+  if (payload?.count && payload.count !== 1 && payload.count !== 2) {
+    send({ type: 'REJECT', payload: { action: 'undo', reason: 'invalid' } });
     return;
   }
+
+  // Validate history is long enough
   if (count === 2 && state.getHistory().length < 2) {
-    sendUndoReject('no_history');
+    send({ type: 'REJECT', payload: { action: 'undo', reason: 'no_history' } });
     return;
   }
-  state.setPendingAction('undo');
-  state.setPendingUndoCount(count);
-  state.setResumeTurn(getTurnLabel());
+
+  // Determine who will resume after undo
+  const resumePlayer = state.getState('local') === 'turn' ? 'local' : 'remote';
+
+  // Initialize pending undo state
+  state.initializeUndoRequest(count as 1 | 2, resumePlayer);
+
+  // Transition to approval waiting state (remote initiated, local approving)
   state.dispatch('local', 'REMOTE_UNDO');
   state.dispatch('remote', 'UNDO');
 };

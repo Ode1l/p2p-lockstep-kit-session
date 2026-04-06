@@ -10,7 +10,8 @@ export type SessionMessageType =
   | 'SYNC_REQUEST'
   | 'SYNC_STATE'
   | 'OFFLINE'
-  | 'ONLINE';
+  | 'ONLINE'
+  | 'GAME_OVER';
 
 export type SessionMessage = {
   type: SessionMessageType;

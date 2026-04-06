@@ -1,130 +1,109 @@
 import type { CommandListener } from '../commandBus';
 import { getState, send } from '../context';
-import type { PlayerLabel } from '../state/state';
 
-type PendingAction = 'undo' | 'restart';
-
-type RequestPayload = {
-  action?: PendingAction;
-  reason?: string;
-} | undefined;
-
-const cleanupPending = () => {
-  const state = getState();
-  state.setPendingAction(null);
-  state.setPendingUndoCount(null);
-  state.setResumeTurn(null);
-};
-
-const applyUndo = () => {
-  const state = getState();
-  const count = state.getPendingUndoCount();
-  if (!count) {
-    return;
-  }
-  for (let i = 0; i < count; i += 1) {
-    state.popHistory();
-  }
-};
-
-const applyRestart = () => {
-  const state = getState();
-  state.clearHistory();
-  state.setLastStart(null);
-  if (state.canAction('local', 'GAME_OVER', 'idle')) {
-    state.dispatch('local', 'GAME_OVER', 'idle');
-  }
-  if (state.canAction('remote', 'GAME_OVER', 'idle')) {
-    state.dispatch('remote', 'GAME_OVER', 'idle');
-  }
-};
-
-const localResumeState = (turn: PlayerLabel | null) =>
-  turn === 'remote' ? 'remote_turn' : 'local_turn';
-
-const remoteResumeState = (turn: PlayerLabel | null) =>
-  turn === 'remote' ? 'local_turn' : 'remote_turn';
-
+/**
+ * Handle approval/rejection of pending requests (undo/restart)
+ *
+ * When local player approves/rejects a pending request:
+ * - Apply undo/restart state changes (clear history, pop moves)
+ * - Use dispatchApprove/dispatchReject for complex state transitions
+ * - Notify peer of decision
+ *
+ * When remote player approves/rejects local's request:
+ * - Similar flow but opposite state transitions
+ */
 export const request: CommandListener = (command) => {
   if (command.type !== 'APPROVE' && command.type !== 'REJECT') {
     return;
   }
+
   const state = getState();
   const action = state.getPendingAction();
+
+  // No pending action to respond to
   if (!action) {
+    console.warn('[Request] No pending action', { commandType: command.type });
     return;
   }
-  const payload = command.payload as RequestPayload;
+
+  const payload = command.payload as { action?: string; reason?: string } | undefined;
+
+  // Verify payload matches pending action
   if (payload?.action && payload.action !== action) {
+    console.warn('[Request] Action mismatch', { pending: action, payload: payload.action });
     return;
   }
 
   if (command.from === 'local') {
     if (command.type === 'APPROVE') {
-      if (
-        !state.canAction('local', 'APPROVE', 'remote_turn') ||
-        !state.canAction('remote', 'APPROVE', 'local_turn')
-      ) {
+      // Local player approves the request
+      if (!state.canAction('local', 'APPROVE')) {
+        console.warn('[Request] Cannot APPROVE from current state');
         return;
       }
-      state.dispatch('local', 'APPROVE', 'remote_turn');
-      state.dispatch('remote', 'APPROVE', 'local_turn');
+
+      // Use special method for complex APPROVE transition
+      state.dispatchApprove();
+
+      // Apply the approved action (undo or restart)
       if (action === 'undo') {
-        applyUndo();
-      } else {
-        applyRestart();
+        state.applyUndo(state.getPendingUndoCount() ?? 1);
+      } else if (action === 'restart') {
+        state.resetGame();
       }
+
       send({ type: 'APPROVE', payload: { action } });
-      cleanupPending();
+      state.clearPendingStates();
       return;
     }
 
-    const resume = state.getResumeTurn();
-    const localTarget = localResumeState(resume);
-    const remoteTarget = remoteResumeState(resume);
-    if (
-      !state.canAction('local', 'REJECT', localTarget) ||
-      !state.canAction('remote', 'REJECT', remoteTarget)
-    ) {
+    // REJECT from local
+    if (!state.canAction('local', 'REJECT')) {
+      console.warn('[Request] Cannot REJECT from current state');
       return;
     }
-    state.dispatch('local', 'REJECT', localTarget);
-    state.dispatch('remote', 'REJECT', remoteTarget);
+
+    // Use special method for complex REJECT transition
+    state.dispatchReject();
+
     send({
       type: 'REJECT',
       payload: { action, reason: payload?.reason ?? 'rejected' },
     });
-    cleanupPending();
+    state.clearPendingStates();
     return;
   }
 
+  // Remote player responded to local's request
   if (command.type === 'APPROVE') {
-    if (
-      !state.canAction('local', 'APPROVE', 'local_turn') ||
-      !state.canAction('remote', 'APPROVE', 'remote_turn')
-    ) {
+    // Remote player approves
+    if (!state.canAction('local', 'APPROVE')) {
+      console.warn('[Request] Cannot APPROVE from current state (remote approved)');
       return;
     }
-    state.dispatch('local', 'APPROVE', 'local_turn');
-    state.dispatch('remote', 'APPROVE', 'remote_turn');
+
+    // Use special method for complex APPROVE transition
+    state.dispatchApprove();
+
+    // Apply the approved action (undo or restart)
     if (action === 'undo') {
-      applyUndo();
-    } else {
-      applyRestart();
+      state.applyUndo(state.getPendingUndoCount() ?? 1);
+    } else if (action === 'restart') {
+      state.resetGame();
     }
-    cleanupPending();
+
+    state.clearPendingStates();
     return;
   }
 
-  const resume = state.getResumeTurn();
-  const localTarget = localResumeState(resume);
-  const remoteTarget = remoteResumeState(resume);
-  if (
-    state.canAction('local', 'REJECT', localTarget) &&
-    state.canAction('remote', 'REJECT', remoteTarget)
-  ) {
-    state.dispatch('local', 'REJECT', localTarget);
-    state.dispatch('remote', 'REJECT', remoteTarget);
+  // REJECT from remote
+  if (!state.canAction('local', 'REJECT')) {
+    console.warn('[Request] Cannot REJECT from current state (remote rejected)');
+    state.clearPendingStates();
+    return;
   }
-  cleanupPending();
+
+  // Use special method for complex REJECT transition
+  state.dispatchReject();
+  state.clearPendingStates();
 };

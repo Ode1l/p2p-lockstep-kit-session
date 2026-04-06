@@ -2,7 +2,7 @@ export type SessionState =
   | 'idle'
   | 'ready'
   | 'could_start'
-  | 'local_turn'
+  | 'turn'
   | 'remote_turn'
   | 'approving'
   | 'waiting_approval'
@@ -45,70 +45,70 @@ const transitions: Transition[] = [
   { from: 'could_start', event: 'REJECT', to: 'idle' },
 
   // Match start / turn assignment
-  { from: 'ready', event: 'REMOTE_START', to: 'local_turn' },
+  { from: 'ready', event: 'REMOTE_START', to: 'turn' },
   { from: 'ready', event: 'REMOTE_START', to: 'remote_turn' },
-  { from: 'could_start', event: 'START', to: 'local_turn' },
+  { from: 'could_start', event: 'START', to: 'turn' },
   { from: 'could_start', event: 'START', to: 'remote_turn' },
 
   // Turn swapping after moves
-  { from: 'local_turn', event: 'MOVE', to: 'remote_turn' },
-  { from: 'remote_turn', event: 'REMOTE_MOVE', to: 'local_turn' },
-  { from: 'local_turn', event: 'REJECT', to: 'local_turn' },
+  { from: 'turn', event: 'MOVE', to: 'remote_turn' },
+  { from: 'remote_turn', event: 'REMOTE_MOVE', to: 'turn' },
+  { from: 'turn', event: 'REJECT', to: 'turn' },
   { from: 'remote_turn', event: 'REJECT', to: 'remote_turn' },
 
   // Requests initiated by local player (undo/restart)
-  { from: 'local_turn', event: 'UNDO', to: 'waiting_approval' },
+  { from: 'turn', event: 'UNDO', to: 'waiting_approval' },
   { from: 'remote_turn', event: 'UNDO', to: 'waiting_approval' },
-  { from: 'local_turn', event: 'RESTART', to: 'waiting_approval' },
+  { from: 'turn', event: 'RESTART', to: 'waiting_approval' },
   { from: 'remote_turn', event: 'RESTART', to: 'waiting_approval' },
 
   // Requests coming from remote (we need to approve)
-  { from: 'local_turn', event: 'REMOTE_UNDO', to: 'approving' },
+  { from: 'turn', event: 'REMOTE_UNDO', to: 'approving' },
   { from: 'remote_turn', event: 'REMOTE_UNDO', to: 'approving' },
-  { from: 'local_turn', event: 'REMOTE_RESTART', to: 'approving' },
+  { from: 'turn', event: 'REMOTE_RESTART', to: 'approving' },
   { from: 'remote_turn', event: 'REMOTE_RESTART', to: 'approving' },
 
   // Approval outcomes when we were waiting
-  { from: 'waiting_approval', event: 'APPROVE', to: 'local_turn' },
-  { from: 'waiting_approval', event: 'REJECT', to: 'local_turn' },
+  { from: 'waiting_approval', event: 'APPROVE', to: 'turn' },
+  { from: 'waiting_approval', event: 'REJECT', to: 'turn' },
   { from: 'waiting_approval', event: 'REJECT', to: 'remote_turn' },
 
   // Approval outcomes when we were confirming
   { from: 'approving', event: 'APPROVE', to: 'remote_turn' },
   { from: 'approving', event: 'REJECT', to: 'remote_turn' },
-  { from: 'approving', event: 'REJECT', to: 'local_turn' },
+  { from: 'approving', event: 'REJECT', to: 'turn' },
 
   // Game end resets back to lobby idle
-  { from: 'local_turn', event: 'GAME_OVER', to: 'idle' },
+  { from: 'turn', event: 'GAME_OVER', to: 'idle' },
   { from: 'remote_turn', event: 'GAME_OVER', to: 'idle' },
 
   // Rejoin/sync flows
-  { from: 'local_turn', event: 'SYNC', to: 'syncing' },
+  { from: 'turn', event: 'SYNC', to: 'syncing' },
   { from: 'remote_turn', event: 'SYNC', to: 'syncing' },
   { from: 'waiting_approval', event: 'SYNC', to: 'syncing' },
   { from: 'approving', event: 'SYNC', to: 'syncing' },
   { from: 'idle', event: 'SYNC', to: 'syncing' },
   { from: 'ready', event: 'SYNC', to: 'syncing' },
   { from: 'could_start', event: 'SYNC', to: 'syncing' },
-  { from: 'syncing', event: 'SYNC_COMPLETE', to: 'local_turn' },
+  { from: 'syncing', event: 'SYNC_COMPLETE', to: 'turn' },
   { from: 'syncing', event: 'SYNC_COMPLETE', to: 'remote_turn' },
 
   // Connection state
   { from: 'idle', event: 'OFFLINE', to: 'offline' },
   { from: 'ready', event: 'OFFLINE', to: 'offline' },
   { from: 'could_start', event: 'OFFLINE', to: 'offline' },
-  { from: 'local_turn', event: 'OFFLINE', to: 'offline' },
+  { from: 'turn', event: 'OFFLINE', to: 'offline' },
   { from: 'remote_turn', event: 'OFFLINE', to: 'offline' },
   { from: 'waiting_approval', event: 'OFFLINE', to: 'offline' },
   { from: 'approving', event: 'OFFLINE', to: 'offline' },
   { from: 'syncing', event: 'OFFLINE', to: 'offline' },
   { from: 'offline', event: 'ONLINE', to: 'syncing' },
 ];
-
+// only receive 'to' from state. never receive from handlers.
 const nextState = (
   state: SessionState,
   event: SessionEvent,
-  to?: SessionState,
+  to?: SessionState, // next turn or pending action
 ): SessionState => {
   if (to) {
     if (

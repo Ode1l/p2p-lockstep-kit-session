@@ -1,39 +1,63 @@
-import { CommandListener } from '../commandBus';
+import type { CommandListener } from '../commandBus';
 import { getBus, getSid, getState, send } from '../context';
 import type { SessionMessage } from '../../utils';
 
+/**
+ * Handle player ready status notification
+ *
+ * For most cases, there's only one valid FSM transition:
+ * - READY: idle → ready (for initiator)
+ * - REMOTE_READY: idle → could_start (for peer)
+ *
+ * The dispatch() method automatically finds the unique transition.
+ */
 export const ready: CommandListener = (command) => {
   const state = getState();
   const bus = getBus();
-  const sid = getSid();
+  const localSid = getSid();
 
   if (command.from === 'local') {
-    const canSelf = state.canAction('local', 'READY');
-    const canPeer = state.canAction('remote', 'REMOTE_READY');
-    if (!canSelf || !canPeer) {
+    // Local player initiating READY
+    if (!state.canAction('local', 'READY')) {
+      console.warn('[Ready] Cannot dispatch READY from current state', {
+        state: state.getState('local'),
+      });
       return;
     }
+
     state.dispatch('local', 'READY');
     state.dispatch('remote', 'REMOTE_READY');
 
     const message: SessionMessage = {
       type: 'READY',
-      sid: sid,
+      sid: localSid,
     };
     send(message);
     return;
   }
 
-  if (sid !== command.sid) {
+  // Remote player sent READY message
+  const remoteSid = (command as any).sid;
+
+  // Validate session ID
+  if (!remoteSid || localSid !== remoteSid) {
+    console.warn('[Ready] Session ID mismatch', {
+      local: localSid,
+      remote: remoteSid,
+    });
     bus.emit('REJECT', { reason: 'sid-mismatch' }, 'local');
     return;
   }
-  if (
-    !state.canAction('remote', 'READY') &&
-    state.canAction('local', 'REMOTE_READY')
-  ) {
+
+  // Check if transition is valid
+  if (!state.canAction('remote', 'READY')) {
+    console.warn('[Ready] Cannot dispatch READY for remote peer', {
+      state: state.getState('remote'),
+    });
     return;
   }
+
+  // Execute state transitions
   state.dispatch('remote', 'READY');
   state.dispatch('local', 'REMOTE_READY');
 };

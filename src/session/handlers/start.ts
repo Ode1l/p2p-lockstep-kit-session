@@ -2,45 +2,68 @@ import type { CommandListener } from '../commandBus';
 import { getState, send } from '../context';
 import type { PlayerLabel } from '../state/state';
 
-const getStarter = (last: PlayerLabel | null): PlayerLabel => {
-  if (!last) {
+/**
+ * Determine next starter (turn order rotation)
+ * If no previous starter, randomly pick one
+ * Otherwise, alternate between local and remote
+ */
+const getNextStarter = (lastStarter: PlayerLabel | null): PlayerLabel => {
+  if (!lastStarter) {
     return Math.random() < 0.5 ? 'local' : 'remote';
   }
-  return last === 'local' ? 'remote' : 'local';
+  return lastStarter === 'local' ? 'remote' : 'local';
 };
 
+/**
+ * Handle game start request
+ *
+ * Determines who plays first and transitions both FSMs accordingly.
+ * Use dispatchStart() for automatic turn assignment based on starter.
+ */
 export const start: CommandListener = (command) => {
   const state = getState();
-  // todo
+
   if (command.from === 'local') {
-    const starter = getStarter(state.getLastStart());
-    const localNext = starter === 'local' ? 'local_turn' : 'remote_turn';
-    const remoteNext = starter === 'local' ? 'remote_turn' : 'local_turn';
-    if (
-      !state.canAction('local', 'START', localNext) ||
-      !state.canAction('remote', 'REMOTE_START', remoteNext)
-    ) {
+    // Local player initiating START
+    if (!state.canAction('local', 'START')) {
+      console.warn('[Start] Cannot START from current state', {
+        state: state.getState('local'),
+      });
       return;
     }
-    state.dispatch('local', 'START', localNext);
-    state.dispatch('remote', 'REMOTE_START', remoteNext);
-    state.setLastStart(starter);
+
+    const nextStarter = getNextStarter(state.getLastStart());
+
+    // Use helper method for complex turn assignment
+    state.dispatchStart(nextStarter);
+
+    // Send message with starter info (encoded as 'sender'/'receiver')
     send({
       type: 'START',
-      payload: { starter: starter === 'local' ? 'sender' : 'receiver' },
+      payload: { starter: nextStarter === 'local' ? 'sender' : 'receiver' },
     });
     return;
   }
-  const starter = command.payload.starter === 'sender' ? 'local' : 'remote';
-  const selfNext = starter === 'local' ? 'local_turn' : 'remote_turn';
-  const peerNext = starter === 'local' ? 'remote_turn' : 'local_turn';
-  if (
-    !state.canAction('local', 'START', selfNext) ||
-    !state.canAction('remote', 'REMOTE_START', peerNext)
-  ) {
+
+  // Remote player sent START message
+  const starterInfo = (command as any).payload?.starter;
+
+  if (!starterInfo) {
+    console.warn('[Start] Invalid START message format', { payload: command });
     return;
   }
-  state.dispatch('local', 'REMOTE_START', selfNext);
-  state.dispatch('remote', 'START', peerNext);
-  state.setLastStart(starter);
+
+  // Check if transition is valid
+  if (!state.canAction('local', 'REMOTE_START')) {
+    console.warn('[Start] Cannot START from current state', {
+      state: state.getState('local'),
+    });
+    return;
+  }
+
+  // Decode starter: if sender started, local player (sender) is the starter
+  const starter = starterInfo === 'sender' ? 'local' : 'remote';
+
+  // Use helper method for complex turn assignment
+  state.dispatchStart(starter);
 };

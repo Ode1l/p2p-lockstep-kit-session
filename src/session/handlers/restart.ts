@@ -1,50 +1,67 @@
 import type { CommandListener } from '../commandBus';
 import { getState, send } from '../context';
 
-const sendRestartReject = (reason: string) => {
-  send({ type: 'REJECT', payload: { action: 'restart', reason } });
-};
-
-const currentTurnLabel = () =>
-  getState().getState('local') === 'local_turn' ? 'local' : 'remote';
-
+/**
+ * Handle restart request from local or remote player
+ *
+ * Validates restart is legal (no pending action, valid state)
+ * and initiates restart request with peer approval flow.
+ *
+ * Restart clears all history but keeps player order for next match.
+ */
 export const restart: CommandListener = (command) => {
   if (command.type !== 'RESTART') {
     return;
   }
+
   const state = getState();
 
   if (command.from === 'local') {
-    if (state.getPendingAction()) {
+    // Validate no pending action
+    if (state.hasPendingAction()) {
       return;
     }
-    const canSelf = state.canAction('local', 'RESTART');
-    const canPeer = state.canAction('remote', 'REMOTE_RESTART');
-    if (!canSelf || !canPeer) {
+
+    // Validate state transitions
+    if (!state.canAction('local', 'RESTART')) {
+      console.warn('[Restart] Cannot RESTART from current state');
       return;
     }
-    state.setPendingAction('restart');
-    state.setPendingUndoCount(null);
-    state.setResumeTurn(currentTurnLabel());
+
+    // Determine who will go first in next match
+    const resumePlayer = state.getState('local') === 'turn' ? 'local' : 'remote';
+
+    // Initialize pending restart state
+    state.initializeRestartRequest(resumePlayer);
+
+    // Transition to approval waiting state
     state.dispatch('local', 'RESTART');
     state.dispatch('remote', 'REMOTE_RESTART');
+
     send({ type: 'RESTART' });
     return;
   }
 
-  if (state.getPendingAction()) {
-    sendRestartReject('busy');
+  // Remote player requested restart
+  if (state.hasPendingAction()) {
+    send({ type: 'REJECT', payload: { action: 'restart', reason: 'busy' } });
     return;
   }
-  const canSelf = state.canAction('local', 'REMOTE_RESTART');
-  const canPeer = state.canAction('remote', 'RESTART');
-  if (!canSelf || !canPeer) {
-    sendRestartReject('invalid_state');
+
+  // Validate state transitions
+  if (!state.canAction('local', 'REMOTE_RESTART')) {
+    console.warn('[Restart] Cannot accept remote RESTART request');
+    send({ type: 'REJECT', payload: { action: 'restart', reason: 'invalid_state' } });
     return;
   }
-  state.setPendingAction('restart');
-  state.setPendingUndoCount(null);
-  state.setResumeTurn(currentTurnLabel());
+
+  // Determine who will go first in next match
+  const resumePlayer = state.getState('local') === 'turn' ? 'local' : 'remote';
+
+  // Initialize pending restart state
+  state.initializeRestartRequest(resumePlayer);
+
+  // Transition to approval waiting state (remote initiated, local approving)
   state.dispatch('local', 'REMOTE_RESTART');
   state.dispatch('remote', 'RESTART');
 };

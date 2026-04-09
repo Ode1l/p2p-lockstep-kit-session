@@ -1,7 +1,11 @@
 {
   "name": "p2p-lockstep-kit-session",
-  "version": "0.1.0",
+  "description": "Game session and lockstep engine for the p2p lockstep kit.",
+  "version": "0.1.1",
+  "license": "GPL-3.0-only",
   "type": "module",
+  "main": "./dist/session/index.js",
+  "types": "./dist/session/index.d.ts",
   "files": [
     "dist"
   ],
@@ -11,7 +15,6 @@
       "import": "./dist/session/index.js"
     }
   },
-  "types": "./dist/session/index.d.ts",
   "scripts": {
     "dev": "tsup --watch",
     "build": "tsup",

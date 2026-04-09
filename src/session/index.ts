@@ -1,7 +1,7 @@
 import {
   createClient,
   NetworkClient,
-} from '../../p2p-lockstep-kit-network/network';
+} from 'p2p-lockstep-kit-network';
 import { CommandBus } from './commandBus';
 import { State } from './state/state';
 import { createNetClient } from './net';
@@ -44,3 +44,5 @@ export const createSession = (sid?: string, networkClient?: NetworkClient) => {
     send: net.send.bind(net),
   };
 };
+
+export * from './plugins';

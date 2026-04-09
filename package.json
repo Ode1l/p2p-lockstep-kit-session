@@ -1,5 +1,5 @@
 {
-  "name": "p2p-lockstep-kit",
+  "name": "p2p-lockstep-kit-session",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -8,11 +8,11 @@
   ],
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./dist/session/index.d.ts",
+      "import": "./dist/session/index.js"
     }
   },
-  "types": "./dist/index.d.ts",
+  "types": "./dist/session/index.d.ts",
   "scripts": {
     "dev": "tsup --watch",
     "build": "tsup",

@@ -1,4 +1,4 @@
-import type { NetworkClient } from '../../p2p-lockstep-kit-network/network';
+import type { NetworkClient } from 'p2p-lockstep-kit-network';
 import type { SessionMessage } from '../utils';
 import type { BusMessageType, CommandBus } from './commandBus';
 

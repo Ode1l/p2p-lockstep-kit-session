@@ -1,7 +1,7 @@
 {
   "name": "p2p-lockstep-kit-session",
   "description": "Game session and lockstep engine for the p2p lockstep kit.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "license": "GPL-3.0-only",
   "type": "module",
   "main": "./dist/session/index.js",
@@ -22,14 +22,9 @@
     "format": "prettier -w ."
   },
   "devDependencies": {
-    "@types/qrcode": "^1.5.5",
     "prettier": "^3.3.1",
     "tsup": "^8.3.0",
     "typescript": "^5.3.3",
     "p2p-lockstep-kit-network": "0.1.0"
-  },
-  "dependencies": {
-    "qrcode": "^1.5.4",
-    "vitest": "^4.1.2"
   }
 }

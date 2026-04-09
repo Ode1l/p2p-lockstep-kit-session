@@ -1,48 +1,55 @@
-import {
-  createClient,
-  NetworkClient,
-} from 'p2p-lockstep-kit-network';
+import { NetworkClient } from 'p2p-lockstep-kit-network';
 import { CommandBus } from './commandBus';
 import { State } from './state/state';
 import { createNetClient } from './net';
 import { initializeContext } from './context';
 import { registerHandlers } from './handlers/busRegister.ts';
+import { GameStateObserver, UINotificationAdapter } from './observer';
+import { LocalActionsAPI } from './actions';
 
 /**
  * Create a new game session with state management and networking
  * @param sid Session ID for rejoining (optional)
  * @param networkClient Custom network client (optional, creates default if not provided)
- * @returns Session manager with bus, state, net, and send method
+ * @returns Session manager with bus, state, observer, net, and send method
  *
  * @example
  * const session = createSession();
+ * // UI automatically updates when state changes - no manual observer calls needed!
+ * session.observer.subscribe(myUIObserver);
  * session.bus.emit('READY', undefined, 'local');
  * await session.net.connect(remotePeerId);
  */
-export const createSession = (sid?: string, networkClient?: NetworkClient) => {
+export const createSession = (networkClient: NetworkClient, sid?: string) => {
   const bus = new CommandBus();
-  let client;
-  if (networkClient) {
-    client = networkClient;
-  } else {
-    client = createClient();
-  }
   const state = new State(null, null);
-  const net = createNetClient(client, bus, null);
+  const observer = new GameStateObserver();
+  const net = createNetClient(networkClient, bus, null);
+
+  // Connect State mutations to UI updates via adapter (plugin pattern)
+  // This is the ONLY place where UI notifications are triggered
+  const uiAdapter = new UINotificationAdapter(state, observer);
+  state.subscribeStateObserver(uiAdapter);
 
   initializeContext(state, bus, net, sid);
   registerHandlers(bus);
 
+  const actions = new LocalActionsAPI(bus);
+
   net.onConnectionChange((isConnected) => {
-    bus.emit(isConnected ? 'ONLINE' : 'OFFLINE', undefined, 'local');
+    bus.emit(isConnected ? 'ONLINE' : 'OFFLINE');
+    observer.notifyConnectionChange(isConnected);
   });
 
   return {
     bus,
     state,
+    observer,
     net,
+    actions,
     send: net.send.bind(net),
   };
 };
 
-export * from './plugins';
+export * from './observer';
+export type { ISessionActions } from './actions';

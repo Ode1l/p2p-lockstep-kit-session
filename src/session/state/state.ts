@@ -1,6 +1,11 @@
 import { SessionEvent, SessionFsm, SessionState } from './fsm';
-import type { IGamePlugin, GameState, ValidationResult } from '../plugins';
-import { DefaultGamePlugin } from '../plugins';
+import type {
+  IGamePlugin,
+  GameState,
+  ValidationResult,
+  IStateObserver,
+} from '../observer';
+import { DefaultGamePlugin, StateObserverManager } from '../observer';
 
 export type TurnEntry = {
   turn: number;
@@ -28,6 +33,9 @@ export class State {
   // Game plugin for rule validation and win checking
   private gamePlugin: IGamePlugin = new DefaultGamePlugin();
 
+  // Internal state observer for UI notifications
+  private stateObserverManager = new StateObserverManager();
+
   constructor(id: string | null, remoteId: string | null) {
     if (id) {
       this.localId = id;
@@ -35,6 +43,14 @@ export class State {
     if (remoteId) {
       this.remoteId = remoteId;
     }
+  }
+
+  /**
+   * Register an internal observer (like plugin pattern)
+   * Use this to connect State mutations to UI updates
+   */
+  public subscribeStateObserver(observer: IStateObserver): void {
+    this.stateObserverManager.subscribe(observer);
   }
 
   // ...existing code...
@@ -76,10 +92,12 @@ export class State {
 
   public clearHistory(): void {
     this.history.splice(0, this.history.length);
+    this.stateObserverManager.notifyHistoryChanged();
   }
 
   public pushHistory(entry: TurnEntry): void {
     this.history.push(entry);
+    this.stateObserverManager.notifyHistoryChanged();
   }
 
   public popHistory(): TurnEntry | null {
@@ -106,6 +124,8 @@ export class State {
     to?: SessionState,
   ): void {
     this.getPlayerFsm(player).dispatch(action, to);
+    // Notify all state observers after state change
+    this.stateObserverManager.notifyStateChanged();
   }
 
   public setPendingAction(action: 'undo' | 'restart' | null) {
@@ -228,6 +248,7 @@ export class State {
     this.remote = new SessionFsm('idle');
     this.lastStart = null;
     this.resumeTurn = null;
+    this.stateObserverManager.notifyGameReset();
   }
 
   /**

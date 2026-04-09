@@ -9,7 +9,17 @@ import { restart } from './restart';
 import { offline } from './offLine';
 
 export const registerHandlers = (bus: CommandBus) => {
-  [ready, start, move, undo, restart, request, sync, offline].forEach((handler) =>
-    bus.on(handler),
-  );
+  bus.register('READY', ready);
+  bus.register('START', start);
+  bus.register('MOVE', move);
+  bus.register('UNDO', undo);
+  bus.register('RESTART', restart);
+  bus.register('SYNC_REQUEST', sync);
+  bus.register('SYNC_STATE', sync);
+  bus.register('OFFLINE', offline);
+  bus.register('ONLINE', offline);
+  bus.register('APPROVE', request);
+  bus.register('REJECT', request);
 };
+
+

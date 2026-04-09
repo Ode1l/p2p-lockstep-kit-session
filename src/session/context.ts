@@ -9,10 +9,10 @@ import { NetClient } from './net';
  * Used by handlers to retrieve state, bus, and network client
  */
 class SessionContext {
-  private state: State;
-  private bus: CommandBus;
-  private net: NetClient;
-  private sid?: string;
+  private readonly state: State;
+  private readonly bus: CommandBus;
+  private readonly net: NetClient;
+  private readonly sid?: string;
 
   constructor(state: State, bus: CommandBus, net: NetClient, sid?: string) {
     this.state = state;
@@ -107,3 +107,4 @@ export const getSid = () => requireContext().getSid();
  */
 export const send = (message: SessionMessage) =>
   requireContext().getNet().send(message);
+

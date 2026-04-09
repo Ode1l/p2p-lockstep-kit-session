@@ -1,31 +1,16 @@
-import type { BusMessage } from '../commandBus';
-import type { PlayerLabel, TurnEntry } from '../state/state';
+import type { PlayerLabel, TurnEntry, State } from '../state/state';
 import type { SessionState } from '../state/fsm';
 
-/**
- * Game state snapshot for UI rendering
- * Minimal data structure that UI needs to display game state
- */
 export interface GameStateSnapshot {
-  // Player states
   localState: SessionState;
   remoteState: SessionState;
-
-  // Game info
   turn: number;
   history: TurnEntry[];
   lastStart: PlayerLabel | null;
-
-  // Pending actions
   pendingAction: 'undo' | 'restart' | null;
-
-  // Connection
   connected: boolean;
 }
 
-/**
- * Game events that trigger UI updates
- */
 export interface GameEvent {
   type: 'READY' | 'START' | 'MOVE' | 'GAME_OVER' | 'UNDO' | 'RESTART' | 'OFFLINE' | 'ONLINE' | 'SYNC' | 'ERROR';
   payload?: any;
@@ -33,130 +18,189 @@ export interface GameEvent {
   timestamp?: number;
 }
 
-/**
- * UI Observer Interface
- * Implement this to receive game state updates
- */
 export interface IGameObserver {
-  /**
-   * Called when game state changes
-   * UI should re-render based on this snapshot
-   */
   onStateChange(snapshot: GameStateSnapshot): void;
-
-  /**
-   * Called when a game event occurs
-   * Use this for animations, sounds, notifications, etc.
-   */
   onGameEvent(event: GameEvent): void;
-
-  /**
-   * Called when connection status changes
-   */
   onConnectionChange?(connected: boolean): void;
-
-  /**
-   * Called when error occurs
-   */
   onError?(error: { message: string; context?: any }): void;
 }
 
-/**
- * Game State Observer Manager
- * Manages UI observers and notifies them of state changes
- */
+export interface IStateObserver {
+  onStateChanged?(): void;
+  onHistoryChanged?(): void;
+  onGameReset?(): void;
+}
+
+export interface IGamePlugin {
+  validateMove(move: unknown, gameState: GameState): ValidationResult;
+  checkWin(gameState: GameState, history: TurnEntry[]): PlayerLabel | null;
+  initialize?(): void;
+  cleanup?(): void;
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  reason?: string;
+}
+
+export interface GameState {
+  history: TurnEntry[];
+  localState: 'turn' | 'remote_turn' | string;
+  remoteState: 'turn' | 'remote_turn' | string;
+  turn: number;
+  lastStart: PlayerLabel | null;
+}
+
+export class DefaultGamePlugin implements IGamePlugin {
+  validateMove(): ValidationResult {
+    return { valid: true };
+  }
+  checkWin(): PlayerLabel | null {
+    return null;
+  }
+}
+
+export class StateObserverManager {
+  private observers: Set<IStateObserver> = new Set();
+
+  subscribe(observer: IStateObserver): void {
+    this.observers.add(observer);
+  }
+
+  unsubscribe(observer: IStateObserver): void {
+    this.observers.delete(observer);
+  }
+
+  notifyStateChanged(): void {
+    for (const observer of this.observers) {
+      try {
+        observer.onStateChanged?.();
+      } catch (err) {
+        console.error('[StateObserver]', err);
+      }
+    }
+  }
+
+  notifyHistoryChanged(): void {
+    for (const observer of this.observers) {
+      try {
+        observer.onHistoryChanged?.();
+      } catch (err) {
+        console.error('[StateObserver]', err);
+      }
+    }
+  }
+
+  notifyGameReset(): void {
+    for (const observer of this.observers) {
+      try {
+        observer.onGameReset?.();
+      } catch (err) {
+        console.error('[StateObserver]', err);
+      }
+    }
+  }
+}
+
 export class GameStateObserver {
   private observers: Set<IGameObserver> = new Set();
   private currentSnapshot: GameStateSnapshot | null = null;
-  private lastEventTimestamp: number = 0;
 
-  /**
-   * Register a UI observer
-   */
-  public subscribe(observer: IGameObserver): () => void {
+  subscribe(observer: IGameObserver): () => void {
     this.observers.add(observer);
-
-    // Return unsubscribe function
     return () => {
       this.observers.delete(observer);
     };
   }
 
-  /**
-   * Unregister a UI observer
-   */
-  public unsubscribe(observer: IGameObserver): void {
+  unsubscribe(observer: IGameObserver): void {
     this.observers.delete(observer);
   }
 
-  /**
-   * Notify all observers of state change
-   */
-  public notifyStateChange(snapshot: GameStateSnapshot): void {
+  notifyStateChange(snapshot: GameStateSnapshot): void {
     this.currentSnapshot = snapshot;
-
     for (const observer of this.observers) {
       try {
         observer.onStateChange(snapshot);
       } catch (err) {
-        console.error('[GameStateObserver] Error notifying state change:', err);
+        console.error('[GameStateObserver]', err);
       }
     }
   }
 
-  /**
-   * Notify all observers of game event
-   */
-  public notifyGameEvent(event: GameEvent): void {
+  notifyGameEvent(event: GameEvent): void {
     event.timestamp = Date.now();
-
     for (const observer of this.observers) {
       try {
         observer.onGameEvent(event);
       } catch (err) {
-        console.error('[GameStateObserver] Error notifying game event:', err);
+        console.error('[GameStateObserver]', err);
       }
     }
   }
 
-  /**
-   * Notify all observers of connection change
-   */
-  public notifyConnectionChange(connected: boolean): void {
+  notifyConnectionChange(connected: boolean): void {
     for (const observer of this.observers) {
       try {
         observer.onConnectionChange?.(connected);
       } catch (err) {
-        console.error('[GameStateObserver] Error notifying connection change:', err);
+        console.error('[GameStateObserver]', err);
       }
     }
   }
 
-  /**
-   * Notify all observers of error
-   */
-  public notifyError(error: { message: string; context?: any }): void {
+  notifyError(error: { message: string; context?: any }): void {
     for (const observer of this.observers) {
       try {
         observer.onError?.(error);
       } catch (err) {
-        console.error('[GameStateObserver] Error notifying error:', err);
+        console.error('[GameStateObserver]', err);
       }
     }
   }
 
-  /**
-   * Get current snapshot
-   */
-  public getSnapshot(): GameStateSnapshot | null {
+  getSnapshot(): GameStateSnapshot | null {
     return this.currentSnapshot;
   }
 
-  /**
-   * Get observer count (useful for debugging)
-   */
-  public getObserverCount(): number {
+  getObserverCount(): number {
     return this.observers.size;
+  }
+}
+
+export function buildGameStateSnapshot(state: State, connected: boolean = false): GameStateSnapshot {
+  return {
+    localState: state.getState('local'),
+    remoteState: state.getState('remote'),
+    turn: state.getTurnCount(),
+    history: state.getHistory(),
+    lastStart: state.getLastStart(),
+    pendingAction: state.getPendingAction(),
+    connected,
+  };
+}
+
+export class UINotificationAdapter implements IStateObserver {
+  private lastNotificationTime = 0;
+  private notificationThrottleMs = 0;
+
+  constructor(private stateRef: State, private uiObserver: GameStateObserver) {}
+
+  onStateChanged(): void {
+    const now = Date.now();
+    if (this.lastNotificationTime + this.notificationThrottleMs > now) return;
+    this.lastNotificationTime = now;
+
+    const snapshot = buildGameStateSnapshot(this.stateRef);
+    this.uiObserver.notifyStateChange(snapshot);
+  }
+
+  onHistoryChanged(): void {}
+
+  onGameReset(): void {}
+
+  emitEvent(event: Omit<GameEvent, 'timestamp'>): void {
+    this.uiObserver.notifyGameEvent(event as GameEvent);
   }
 }
 

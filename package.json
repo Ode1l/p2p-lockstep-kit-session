@@ -1,6 +1,5 @@
 {
   "name": "p2p-lockstep-kit-session",
-  "private": true,
   "version": "0.1.0",
   "type": "module",
   "files": [
@@ -23,7 +22,8 @@
     "@types/qrcode": "^1.5.5",
     "prettier": "^3.3.1",
     "tsup": "^8.3.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "p2p-lockstep-kit-network": "0.1.0"
   },
   "dependencies": {
     "qrcode": "^1.5.4",

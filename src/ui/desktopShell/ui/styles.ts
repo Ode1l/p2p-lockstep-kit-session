@@ -1,9 +1,9 @@
 export const createDesktopStyles = () => {
-  const styleId = "p2p-lockstep-kit-desktop-shell";
+  const styleId = 'p2p-lockstep-kit-desktop-shell';
   if (document.getElementById(styleId)) {
     return;
   }
-  const style = document.createElement("style");
+  const style = document.createElement('style');
   style.id = styleId;
   style.textContent = `
     :root {

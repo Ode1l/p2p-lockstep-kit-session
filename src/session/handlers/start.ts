@@ -1,34 +1,69 @@
-import type { StartPayload } from "../../utils";
+import type { CommandListener } from '../commandBus';
+import { getState, send } from '../context';
+import type { PlayerLabel } from '../state/state';
 
-export const createStartHandler = (hooks: {
-  startMatch: (myColor: 1 | 2) => void;
-  setLastStartSenderColor: (color: 1 | 2) => void;
-  getLastStartSenderColor: () => 1 | 2 | null;
-  canStart: () => boolean;
-  sendStart: (payload: StartPayload) => void;
-}) => {
-  const {
-    startMatch,
-    setLastStartSenderColor,
-    getLastStartSenderColor,
-    canStart,
-    sendStart,
-  } = hooks;
+/**
+ * Determine next starter (turn order rotation)
+ * If no previous starter, randomly pick one
+ * Otherwise, alternate between local and remote
+ */
+const getNextStarter = (lastStarter: PlayerLabel | null): PlayerLabel => {
+  if (!lastStarter) {
+    return Math.random() < 0.5 ? 'local' : 'remote';
+  }
+  return lastStarter === 'local' ? 'remote' : 'local';
+};
 
-  return (payload: StartPayload, origin: "local" | "remote") => {
-    if (origin === "local") {
-      if (!canStart()) {
-        return;
-      }
-      const last = getLastStartSenderColor();
-      const senderColor = last ? (last === 1 ? 2 : 1) : Math.random() < 0.5 ? 1 : 2;
-      const receiverColor = senderColor === 1 ? 2 : 1;
-      setLastStartSenderColor(senderColor);
-      sendStart({ senderColor, receiverColor, firstPlayer: 1 });
-      startMatch(senderColor);
+/**
+ * Handle game start request
+ *
+ * Determines who plays first and transitions both FSMs accordingly.
+ * Use dispatchStart() for automatic turn assignment based on starter.
+ */
+export const start: CommandListener = (command) => {
+  const state = getState();
+
+  if (command.from === 'local') {
+    // Local player initiating START
+    if (!state.canAction('local', 'START')) {
+      console.warn('[Start] Cannot START from current state', {
+        state: state.getState('local'),
+      });
       return;
     }
-    setLastStartSenderColor(payload.senderColor);
-    startMatch(payload.receiverColor);
-  };
+
+    const nextStarter = getNextStarter(state.getLastStart());
+
+    // Use helper method for complex turn assignment
+    state.dispatchStart(nextStarter);
+
+    // Send message with starter info (encoded as 'sender'/'receiver')
+    send({
+      type: 'START',
+      payload: { starter: nextStarter === 'local' ? 'sender' : 'receiver' },
+    });
+    return;
+  }
+
+  // Remote player sent START message
+  const starterInfo = (command as any).payload?.starter;
+
+  if (!starterInfo) {
+    console.warn('[Start] Invalid START message format', { payload: command });
+    return;
+  }
+
+  // Check if transition is valid
+  if (!state.canAction('local', 'REMOTE_START')) {
+    console.warn('[Start] Cannot START from current state', {
+      state: state.getState('local'),
+    });
+    return;
+  }
+
+  // Decode starter: if sender started, local player (sender) is the starter
+  const starter = starterInfo === 'sender' ? 'local' : 'remote';
+
+  // Use helper method for complex turn assignment
+  state.dispatchStart(starter);
 };

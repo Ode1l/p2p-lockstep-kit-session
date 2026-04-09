@@ -1,330 +1,375 @@
-// Session State (state): owns game instance, render bridge, and cached snapshot history.
-// Responsibilities:
-// - Maintain session-local state (peerId, color, history, cache).
-// - Render UI updates and feed context into the game.
-// - Persist/restore snapshot cache for rejoin.
-import type {
-  GameMove,
-  IGamePlugin,
-  IGameSession,
-  GameStatus,
-  IRuleGuard,
-  IRuleGuardResult,
-  ShellUi,
-} from "../../game/types";
-import type { Logger, SyncStatePayload } from "../../utils";
+import { SessionEvent, SessionFsm, SessionState } from './fsm';
+import type { IGamePlugin, GameState, ValidationResult } from '../plugins';
+import { DefaultGamePlugin } from '../plugins';
 
-type SessionStateHooks = {
-  onReadyChange?: (ready: { self: boolean; peer: boolean }) => void;
-  onMatchStart?: () => void;
-  onMatchEnd?: () => void;
-};
-
-type CacheState = {
-  updatedAt: number;
-  snapshot: unknown;
-  hash: string;
+export type TurnEntry = {
   turn: number;
-  history: GameMove[];
-  myColor: 1 | 2;
+  player: 'local' | 'remote';
+  move?: any;
 };
 
-const cacheKey = (sid: string) => `p2p-lockstep-kit:match:${sid}`;
+export type PlayerLabel = 'local' | 'remote';
 
-const loadCache = (sid: string): CacheState | null => {
-  const raw = localStorage.getItem(cacheKey(sid));
-  if (!raw) {
-    return null;
-  }
-  try {
-    return JSON.parse(raw) as CacheState;
-  } catch {
-    return null;
-  }
-};
+export class State {
+  // will update map when multi-players (>=3)
+  private local = new SessionFsm('idle');
+  private remote = new SessionFsm('idle');
+  // for compare remote is same people or not
+  private readonly localId: string | null = null;
+  private remoteId: string | null = null;
+  // store all actions
+  private readonly history: TurnEntry[] = [];
+  // pending some state
+  private pendingAction: 'undo' | 'restart' | null = null;
+  private pendingUndoCount: 1 | 2 | null = null;
+  private resumeTurn: PlayerLabel | null = null;
+  private lastStart: PlayerLabel | null = null;
 
-const saveCache = (sid: string, cache: CacheState | null) => {
-  if (!cache) {
-    localStorage.removeItem(cacheKey(sid));
-    return;
-  }
-  localStorage.setItem(cacheKey(sid), JSON.stringify(cache));
-};
+  // Game plugin for rule validation and win checking
+  private gamePlugin: IGamePlugin = new DefaultGamePlugin();
 
-export const createSessionState = (
-  options: {
-    sid: string;
-    plugin: IGamePlugin;
-    ui: ShellUi;
-    mount: HTMLElement;
-    onLocalMove: (move: GameMove) => void;
-    logger: Logger;
-  },
-  hooks: SessionStateHooks = {},
-) => {
-  const { sid, plugin, ui, mount, onLocalMove, logger } = options;
-  const game: IGameSession = plugin.create({
-    mount,
-    onLocalMove,
-    onLog: (message) => {
-      logger.info(`[game] ${message}`);
-      ui.log?.(`[game] ${message}`);
-    },
-  });
-  const getWinner = game.isWin;
-
-  let myColor: 1 | 2 | null = null;
-  let connected = false;
-  let peerId = "";
-  let readySelf = false;
-  let readyPeer = false;
-  let started = false;
-  let history: GameMove[] = [];
-  let lastWinner: 0 | 1 | 2 = 0;
-  let cache = loadCache(sid);
-  const ruleGuard: IRuleGuard =
-    game.getRuleGuard?.() ??
-    ({
-      canApplyMove: (move: GameMove, _status: GameStatus): IRuleGuardResult => {
-        const ok = game.canApplyMove(move);
-        return ok ? { ok: true } : { ok: false, reason: "invalid" };
-      },
-    } satisfies IRuleGuard);
-
-  if (cache) {
-    myColor = cache.myColor;
-  }
-
-  const getStatus = (): GameStatus => game.getStatus();
-
-  const peer = {
-    getId: () => peerId,
-    setId: (next: string) => {
-      peerId = next;
-    },
-  };
-
-  const connectionState = {
-    set: (next: boolean) => {
-      connected = next;
-    },
-  };
-
-  const player = {
-    getMyColor: () => myColor,
-    setMyColor: (next: 1 | 2 | null) => {
-      myColor = next;
-    },
-  };
-
-  const notifyReadyChange = () => {
-    hooks.onReadyChange?.({ self: readySelf, peer: readyPeer });
-  };
-
-  const ready = {
-    get: () => ({ self: readySelf, peer: readyPeer }),
-    setSelf: (next: boolean) => {
-      readySelf = next;
-      notifyReadyChange();
-    },
-    setPeer: (next: boolean) => {
-      readyPeer = next;
-      notifyReadyChange();
-    },
-    clear: () => {
-      readySelf = false;
-      readyPeer = false;
-      notifyReadyChange();
-    },
-  };
-
-  const startedState = {
-    set: (next: boolean) => {
-      started = next;
-    },
-    is: () => started,
-  };
-
-  const hasCache = () => !!cache;
-
-  const handleWinnerChange = (prevStatus?: GameStatus) => {
-    const status = game.getStatus();
-    const winner = getWinner ? getWinner(status) : status.winner;
-    const prevWinner = prevStatus?.winner ?? lastWinner;
-    if (winner !== 0 && prevWinner !== winner) {
-      lastWinner = winner;
-      ready.clear();
-      startedState.set(false);
-      ui.showWinner?.(winner);
-      const label = winner === myColor ? "You win!" : "You lose.";
-      logger.info(`[game] ${label}`);
-      ui.log?.(`[game] ${label}`);
-      hooks.onMatchEnd?.();
+  constructor(id: string | null, remoteId: string | null) {
+    if (id) {
+      this.localId = id;
     }
-  };
+    if (remoteId) {
+      this.remoteId = remoteId;
+    }
+  }
 
-  const render = () => {
-    const status = game.getStatus();
-    ui.updatePanel({
-      peerId,
-      connected,
-      gameTitle: plugin.title,
-      readySelf,
-      readyPeer,
-      started,
-      myColor,
-      currentTurn: status.turn,
-      currentPlayer: status.currentPlayer,
-      hasCache: hasCache(),
+  // ...existing code...
+
+  public getId(): string | null {
+    return this.localId;
+  }
+
+  public getremoteId(): string | null {
+    return this.remoteId;
+  }
+
+  public setremoteId(id: string) {
+    this.remoteId = id;
+  }
+
+  public getState(player: PlayerLabel): SessionState {
+    return this.getPlayerFsm(player).getState();
+  }
+
+  public getTurnCount(): number {
+    return this.history.length + 1;
+  }
+
+  public getHistory(): TurnEntry[] {
+    return this.history.slice();
+  }
+
+  public replaceHistory(entries: TurnEntry[]): void {
+    this.clearHistory();
+    entries.forEach((entry) => {
+      this.pushHistory({
+        turn: entry.turn,
+        player: entry.player,
+        move: entry.move,
+      });
     });
-    game.setContext({ connected, myColor });
-  };
+  }
 
-  const persistCache = () => {
-    if (!myColor) {
-      return;
+  public clearHistory(): void {
+    this.history.splice(0, this.history.length);
+  }
+
+  public pushHistory(entry: TurnEntry): void {
+    this.history.push(entry);
+  }
+
+  public popHistory(): TurnEntry | null {
+    return this.history.pop() ?? null;
+  }
+
+  public canAction(
+    player: PlayerLabel,
+    action: SessionEvent,
+  ): boolean {
+    return this.getPlayerFsm(player).hasNextState(action);
+  }
+
+  /**
+   * Dispatch an action and automatically determine target state if unique
+   * Only use explicit 'to' parameter for ambiguous transitions (APPROVE, REJECT, etc.)
+   *
+   * For most actions (READY, MOVE, START, etc.), there's only one valid transition,
+   * so we automatically find and apply it.
+   */
+  public dispatch(
+    player: PlayerLabel,
+    action: SessionEvent,
+    to?: SessionState,
+  ): void {
+    this.getPlayerFsm(player).dispatch(action, to);
+  }
+
+  public setPendingAction(action: 'undo' | 'restart' | null) {
+    this.pendingAction = action;
+  }
+
+  public getPendingAction() {
+    return this.pendingAction;
+  }
+
+  public setPendingUndoCount(count: 1 | 2 | null) {
+    this.pendingUndoCount = count;
+  }
+
+  public getPendingUndoCount(): 1 | 2 | null {
+    return this.pendingUndoCount;
+  }
+
+  public setLastStart(player: PlayerLabel | null) {
+    this.lastStart = player;
+  }
+
+  public getLastStart(): PlayerLabel | null {
+    return this.lastStart;
+  }
+
+  public setResumeTurn(player: PlayerLabel | null) {
+    this.resumeTurn = player;
+  }
+
+  public getResumeTurn(): PlayerLabel | null {
+    return this.resumeTurn;
+  }
+
+  private getPlayerFsm(player: PlayerLabel): SessionFsm {
+    return player === 'local' ? this.local : this.remote;
+  }
+
+  // ===== Helper Methods for Undo/Restart Request Handling =====
+
+  /**
+   * Save game state snapshot for undo/restart operations
+   */
+  private gameSnapshot: unknown = null;
+
+  public saveGameSnapshot(snapshot: unknown): void {
+    this.gameSnapshot = snapshot;
+  }
+
+  public getGameSnapshot(): unknown {
+    return this.gameSnapshot;
+  }
+
+  public clearGameSnapshot(): void {
+    this.gameSnapshot = null;
+  }
+
+  /**
+   * Check if there's a pending action (undo/restart)
+   */
+  public hasPendingAction(): boolean {
+    return this.pendingAction !== null;
+  }
+
+  /**
+   * Clear all pending states (called after approval/rejection)
+   */
+  public clearPendingStates(): void {
+    this.pendingAction = null;
+    this.pendingUndoCount = null;
+    this.resumeTurn = null;
+  }
+
+  /**
+   * Initialize undo request with undo count and current turn holder
+   */
+  public initializeUndoRequest(undoCount: 1 | 2, resumeTurn: PlayerLabel): void {
+    this.pendingAction = 'undo';
+    this.pendingUndoCount = undoCount;
+    this.resumeTurn = resumeTurn;
+  }
+
+  /**
+   * Initialize restart request with resume turn
+   */
+  public initializeRestartRequest(resumeTurn: PlayerLabel): void {
+    this.pendingAction = 'restart';
+    this.resumeTurn = resumeTurn;
+  }
+
+  /**
+   * Check if pending action is undo
+   */
+  public isPendingUndo(): boolean {
+    return this.pendingAction === 'undo';
+  }
+
+  /**
+   * Check if pending action is restart
+   */
+  public isPendingRestart(): boolean {
+    return this.pendingAction === 'restart';
+  }
+
+  /**
+   * Apply undo by popping history N times
+   */
+  public applyUndo(count: 1 | 2 = 1): void {
+    for (let i = 0; i < count; i++) {
+      this.popHistory();
     }
-    const status = getStatus();
-    cache = {
-      updatedAt: Date.now(),
-      snapshot: game.getSnapshot(),
-      hash: game.getHash(),
-      turn: status.turn,
-      history: history.slice(-10),
-      myColor,
+  }
+
+  /**
+   * Reset game state to initial (for restart)
+   */
+  public resetGame(): void {
+    this.clearHistory();
+    this.local = new SessionFsm('idle');
+    this.remote = new SessionFsm('idle');
+    this.lastStart = null;
+    this.resumeTurn = null;
+  }
+
+  /**
+   * Save start player for rejoin flow
+   */
+  public recordStartPlayer(player: PlayerLabel): void {
+    this.lastStart = player;
+  }
+
+  /**
+   * Get move to undo from history
+   */
+  public getLastMove(): TurnEntry | null {
+    return this.history.length > 0 ? this.history[this.history.length - 1] : null;
+  }
+
+  // ===== Specialized FSM Dispatch Methods =====
+
+  /**
+   * Dispatch APPROVE action with automatic target state resolution
+   * Multiple valid transitions exist - use state context to determine target
+   */
+  public dispatchApprove(): void {
+    const localState = this.local.getState();
+    if (localState === 'waiting_approval') {
+      // Local was waiting, always go back to turn
+      this.local.dispatch('APPROVE', 'turn');
+      this.remote.dispatch('APPROVE', 'turn');
+    } else if (localState === 'approving') {
+      // Local was confirming, peer takes turn
+      this.local.dispatch('APPROVE', 'remote_turn');
+      this.remote.dispatch('APPROVE', 'remote_turn');
+    }
+  }
+
+  /**
+   * Dispatch REJECT action with automatic target state resolution
+   * Multiple valid transitions exist - use resumeTurn to determine who continues
+   */
+  public dispatchReject(): void {
+    const localState = this.local.getState();
+
+    if (localState === 'waiting_approval' || localState === 'approving') {
+      // resumeTurn tells us who should have turn after rejection
+      const targetState = this.resumeTurn === 'local' ? 'turn' : 'remote_turn';
+      this.local.dispatch('REJECT', targetState);
+      this.remote.dispatch('REJECT', targetState);
+    }
+  }
+
+  /**
+   * Dispatch START action with automatic target state resolution
+   * Determines who plays first based on starter parameter
+   */
+  public dispatchStart(firstPlayer: PlayerLabel): void {
+    if (firstPlayer === 'local') {
+      this.local.dispatch('START', 'turn');
+      this.remote.dispatch('START', 'remote_turn');
+      this.lastStart = 'local';
+    } else {
+      this.local.dispatch('START', 'remote_turn');
+      this.remote.dispatch('START', 'turn');
+      this.lastStart = 'remote';
+    }
+  }
+
+  /**
+   * Dispatch SYNC_COMPLETE with automatic target state resolution
+   * Based on who should have the turn after sync
+   */
+  public dispatchSyncComplete(nextPlayer: PlayerLabel): void {
+    if (nextPlayer === 'local') {
+      this.local.dispatch('SYNC_COMPLETE', 'turn');
+      this.remote.dispatch('SYNC_COMPLETE', 'remote_turn');
+    } else {
+      this.local.dispatch('SYNC_COMPLETE', 'remote_turn');
+      this.remote.dispatch('SYNC_COMPLETE', 'turn');
+    }
+    this.resumeTurn = nextPlayer;
+  }
+
+  // ===== Game Plugin Integration (Proxy Pattern) =====
+
+  /**
+   * Set the game plugin for rule validation and win checking
+   * @param plugin Implementation of IGamePlugin
+   */
+  public setGamePlugin(plugin: IGamePlugin): void {
+    this.gamePlugin = plugin;
+    if (plugin.initialize) {
+      plugin.initialize();
+    }
+  }
+
+  /**
+   * Get current game plugin
+   */
+  public getGamePlugin(): IGamePlugin {
+    return this.gamePlugin;
+  }
+
+  /**
+   * Validate a move using the game plugin
+   * Called by move handler to check if move is legal
+   * @param move The move data to validate
+   * @returns Validation result with reason if invalid
+   */
+  public validateMove(move: unknown): ValidationResult {
+    const gameState = this.buildGameState();
+    return this.gamePlugin.validateMove(move, gameState);
+  }
+
+  /**
+   * Check if game has ended (someone won)
+   * Called by move handler after move is applied
+   * @returns Winner (local/remote) or null if game continues
+   */
+  public checkWin(): PlayerLabel | null {
+    const gameState = this.buildGameState();
+    return this.gamePlugin.checkWin(gameState, this.getHistory());
+  }
+
+  /**
+   * Cleanup when game ends (for plugin to reset internal state)
+   */
+  public cleanupGame(): void {
+    if (this.gamePlugin.cleanup) {
+      this.gamePlugin.cleanup();
+    }
+  }
+
+  /**
+   * Build game state for plugin
+   * @private
+   */
+  private buildGameState(): GameState {
+    return {
+      history: this.getHistory(),
+      localState: this.getState('local'),
+      remoteState: this.getState('remote'),
+      turn: this.getTurnCount(),
+      lastStart: this.getLastStart(),
     };
-    saveCache(sid, cache);
-  };
-
-  const resetMatch = () => {
-    game.reset();
-    history = [];
-    lastWinner = 0;
-    render();
-    persistCache();
-  };
-
-  const resetToLobby = () => {
-    clearCache();
-    ready.clear();
-    startedState.set(false);
-    resetMatch();
-    hooks.onMatchEnd?.();
-  };
-
-  const startMatch = (nextColor: 1 | 2) => {
-    clearCache();
-    startedState.set(true);
-    ready.clear();
-    player.setMyColor(nextColor);
-    resetMatch();
-    ui.showStart?.();
-    hooks.onMatchStart?.();
-  };
-
-  const applySnapshot = (payload: SyncStatePayload) => {
-    game.applySnapshot(payload.state);
-    history = [];
-    render();
-    persistCache();
-    hooks.onMatchStart?.();
-  };
-
-  const canRestore = (
-    payload: { cacheHash: string; turn: number },
-    resumeTTLms: number,
-  ) =>
-    !!(
-      cache &&
-      cache.hash === payload.cacheHash &&
-      cache.turn === payload.turn &&
-      Date.now() - cache.updatedAt <= resumeTTLms
-    );
-
-  const clearCache = () => {
-    cache = null;
-    saveCache(sid, null);
-  };
-
-  const getCacheMeta = () => ({
-    cacheHash: cache?.hash ?? "",
-    cacheTurn: cache?.turn ?? 0,
-  });
-
-  const pushHistory = (move: GameMove) => {
-    history.push(move);
-  };
-
-  const popHistory = () => history.pop();
-  const hasHistory = () => history.length > 0;
-  const getHistoryLength = () => history.length;
-
-  const applyMove = (move: GameMove) => {
-    game.applyMove(move);
-    pushHistory(move);
-  };
-
-  const finalizeMove = (prevStatus: GameStatus) => {
-    handleWinnerChange(prevStatus);
-    render();
-    persistCache();
-  };
-
-  const rollbackLastMove = () => {
-    const last = popHistory();
-    if (!last) {
-      return false;
-    }
-    game.undoMove(last);
-    render();
-    persistCache();
-    return true;
-  };
-
-  const applyUndoCount = (count: 1 | 2) => {
-    let remaining = count;
-    while (remaining > 0) {
-      const last = popHistory();
-      if (!last) {
-        return false;
-      }
-      game.undoMove(last);
-      remaining -= 1;
-    }
-    render();
-    persistCache();
-    return true;
-  };
-
-  notifyReadyChange();
-
-  return {
-    game,
-    ruleGuard,
-    getStatus,
-    peer,
-    connectionState,
-    player,
-    ready,
-    startedState,
-    hasCache,
-    handleWinnerChange,
-    render,
-    persistCache,
-    resetMatch,
-    applySnapshot,
-    canRestore,
-    clearCache,
-    getCacheMeta,
-    history: {
-      has: hasHistory,
-      length: getHistoryLength,
-    },
-    resetToLobby,
-    startMatch,
-    applyMove,
-    finalizeMove,
-    rollbackLastMove,
-    applyUndoCount,
-  };
-};
+  }
+}

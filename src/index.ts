@@ -1,7 +1,4 @@
-export { createClient } from "./network";
-export type { Facade } from "./network";
-
-export { createShell } from "./ui/shell";
+export { createShell } from './ui/shell';
 export type {
   IGamePlugin,
   IGameSession,
@@ -11,6 +8,7 @@ export type {
   IRuleGuard,
   IRuleGuardResult,
   ShellUi,
-} from "./ui/shell";
-export { createShellUi } from "./ui/shell/ui/shellUi";
-export { createDesktopShellUi } from "./ui/desktopShell";
+  VoiceUiState,
+} from './ui/shell';
+export { createShellUi } from './ui/shell/ui/shellUi';
+export { createDesktopShellUi } from './ui/desktopShell';

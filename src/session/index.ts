@@ -1,18 +1,46 @@
-// Session Facade: public exports for the session layer.
-// Responsibilities:
-// - Expose session APIs without leaking folder structure details.
-export { createSessionController } from "./controller";
-export { createSessionFlow } from "./flow";
-export { createCommandBus } from "./commandRegistry";
-export type { SessionOptions } from "./controller";
-export type { NetAdapter } from "./net";
-export type {
-  IGamePlugin,
-  IGameSession,
-  IGameContext,
-  GameMove,
-  GameStatus,
-  IRuleGuard,
-  IRuleGuardResult,
-  ShellUi,
-} from "../game/types";
+import {
+  createClient,
+  NetworkClient,
+} from '../../p2p-lockstep-kit-network/network';
+import { CommandBus } from './commandBus';
+import { State } from './state/state';
+import { createNetClient } from './net';
+import { initializeContext } from './context';
+import { registerHandlers } from './handlers/busRegister.ts';
+
+/**
+ * Create a new game session with state management and networking
+ * @param sid Session ID for rejoining (optional)
+ * @param networkClient Custom network client (optional, creates default if not provided)
+ * @returns Session manager with bus, state, net, and send method
+ *
+ * @example
+ * const session = createSession();
+ * session.bus.emit('READY', undefined, 'local');
+ * await session.net.connect(remotePeerId);
+ */
+export const createSession = (sid?: string, networkClient?: NetworkClient) => {
+  const bus = new CommandBus();
+  let client;
+  if (networkClient) {
+    client = networkClient;
+  } else {
+    client = createClient();
+  }
+  const state = new State(null, null);
+  const net = createNetClient(client, bus, null);
+
+  initializeContext(state, bus, net, sid);
+  registerHandlers(bus);
+
+  net.onConnectionChange((isConnected) => {
+    bus.emit(isConnected ? 'ONLINE' : 'OFFLINE', undefined, 'local');
+  });
+
+  return {
+    bus,
+    state,
+    net,
+    send: net.send.bind(net),
+  };
+};

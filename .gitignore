@@ -24,4 +24,3 @@ pnpm-lock.yaml
 *.njsproj
 *.sln
 *.sw?
-/p2p-lockstep-kit-network/

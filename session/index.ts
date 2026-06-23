@@ -4,7 +4,11 @@ import { State } from './state/state';
 import { createNetClient } from './net';
 import { initializeContext } from './context';
 import { registerHandlers } from './handlers/busRegister.ts';
-import { GameStateObserver, UINotificationAdapter } from './observer';
+import {
+  buildGameStateSnapshot,
+  GameStateObserver,
+  UINotificationAdapter,
+} from './observer';
 import { LocalActionsAPI } from './actions';
 
 /**
@@ -28,7 +32,9 @@ export const createSession = (networkClient: NetworkClient, sid?: string) => {
 
   // Connect State mutations to UI updates via adapter (plugin pattern)
   // This is the ONLY place where UI notifications are triggered
-  const uiAdapter = new UINotificationAdapter(state, observer);
+  const uiAdapter = new UINotificationAdapter(state, observer, () =>
+    net.getIsConnected(),
+  );
   state.subscribeStateObserver(uiAdapter);
 
   initializeContext(state, bus, net, sid);
@@ -37,8 +43,8 @@ export const createSession = (networkClient: NetworkClient, sid?: string) => {
   const actions = new LocalActionsAPI(bus);
 
   net.onConnectionChange((isConnected) => {
-    bus.emit(isConnected ? 'ONLINE' : 'OFFLINE');
     observer.notifyConnectionChange(isConnected);
+    observer.notifyStateChange(buildGameStateSnapshot(state, isConnected));
   });
 
   return {

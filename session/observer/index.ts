@@ -184,14 +184,18 @@ export class UINotificationAdapter implements IStateObserver {
   private lastNotificationTime = 0;
   private notificationThrottleMs = 0;
 
-  constructor(private stateRef: State, private uiObserver: GameStateObserver) {}
+  constructor(
+    private stateRef: State,
+    private uiObserver: GameStateObserver,
+    private getConnected: () => boolean = () => false,
+  ) {}
 
   onStateChanged(): void {
     const now = Date.now();
     if (this.lastNotificationTime + this.notificationThrottleMs > now) return;
     this.lastNotificationTime = now;
 
-    const snapshot = buildGameStateSnapshot(this.stateRef);
+    const snapshot = buildGameStateSnapshot(this.stateRef, this.getConnected());
     this.uiObserver.notifyStateChange(snapshot);
   }
 
@@ -203,4 +207,3 @@ export class UINotificationAdapter implements IStateObserver {
     this.uiObserver.notifyGameEvent(event as GameEvent);
   }
 }
-

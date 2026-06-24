@@ -27,11 +27,11 @@ export class NetClient {
       if (!message || typeof message !== 'object' || !message.type) {
         return;
       }
-      this.bus.emit(
-        message.type as BusMessageType,
-        message as SessionMessage,
-        'remote',
-      );
+      this.bus.dispatch({
+        ...(message as SessionMessage),
+        type: message.type as BusMessageType,
+        from: 'remote',
+      });
     });
 
     // Monitor connection state and emit ONLINE/OFFLINE events

@@ -18,24 +18,30 @@ const getNextStarter = (lastStarter: PlayerLabel | null): PlayerLabel => {
  * Handle game start request
  *
  * Determines who plays first and transitions both FSMs accordingly.
- * Use dispatchStart() for automatic turn assignment based on starter.
  */
 export const start: CommandListener = (command) => {
   const state = getState();
 
   if (command.from === 'local') {
     // Local player initiating START
-    if (!state.canAction('local', 'START')) {
+    if (
+      !state.canAction('local', 'START') ||
+      !state.canAction('remote', 'REMOTE_START')
+    ) {
       console.warn('[Start] Cannot START from current state', {
-        state: state.getState('local'),
+        localState: state.getState('local'),
+        remoteState: state.getState('remote'),
       });
       return;
     }
 
     const nextStarter = getNextStarter(state.getLastStart());
+    const localTarget = nextStarter === 'local' ? 'turn' : 'remote_turn';
+    const remoteTarget = nextStarter === 'local' ? 'remote_turn' : 'turn';
 
-    // Use helper method for complex turn assignment
-    state.dispatchStart(nextStarter);
+    state.setLastStart(nextStarter);
+    state.dispatch('local', 'START', localTarget);
+    state.dispatch('remote', 'REMOTE_START', remoteTarget);
 
     // Send message with starter info (encoded as 'sender'/'receiver')
     send({
@@ -54,16 +60,23 @@ export const start: CommandListener = (command) => {
   }
 
   // Check if transition is valid
-  if (!state.canAction('local', 'REMOTE_START')) {
+  if (
+    !state.canAction('local', 'REMOTE_START') ||
+    !state.canAction('remote', 'START')
+  ) {
     console.warn('[Start] Cannot START from current state', {
-      state: state.getState('local'),
+      localState: state.getState('local'),
+      remoteState: state.getState('remote'),
     });
     return;
   }
 
-  // Decode starter: if sender started, local player (sender) is the starter
-  const starter = starterInfo === 'sender' ? 'local' : 'remote';
+  // Decode from the receiver's perspective: the sender is the remote peer.
+  const starter = starterInfo === 'sender' ? 'remote' : 'local';
+  const localTarget = starter === 'local' ? 'turn' : 'remote_turn';
+  const remoteTarget = starter === 'local' ? 'remote_turn' : 'turn';
 
-  // Use helper method for complex turn assignment
-  state.dispatchStart(starter);
+  state.setLastStart(starter);
+  state.dispatch('local', 'REMOTE_START', localTarget);
+  state.dispatch('remote', 'START', remoteTarget);
 };

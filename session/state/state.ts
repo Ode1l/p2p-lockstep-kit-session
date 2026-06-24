@@ -92,12 +92,12 @@ export class State {
 
   public clearHistory(): void {
     this.history.splice(0, this.history.length);
-    this.stateObserverManager.notifyHistoryChanged();
+    this.notifyHistoryChanged();
   }
 
   public pushHistory(entry: TurnEntry): void {
     this.history.push(entry);
-    this.stateObserverManager.notifyHistoryChanged();
+    this.notifyHistoryChanged();
   }
 
   public popHistory(): TurnEntry | null {
@@ -125,7 +125,7 @@ export class State {
   ): void {
     this.getPlayerFsm(player).dispatch(action, to);
     // Notify all state observers after state change
-    this.stateObserverManager.notifyStateChanged();
+    this.notifyStateChanged();
   }
 
   public setPendingAction(action: 'undo' | 'restart' | null) {
@@ -164,6 +164,29 @@ export class State {
     return player === 'local' ? this.local : this.remote;
   }
 
+  private notifyStateChanged(): void {
+    this.stateObserverManager.notifyStateChanged();
+  }
+
+  private notifyHistoryChanged(): void {
+    this.stateObserverManager.notifyHistoryChanged();
+  }
+
+  private notifyGameReset(): void {
+    this.stateObserverManager.notifyGameReset();
+  }
+
+  private dispatchPair(
+    localAction: SessionEvent,
+    localTo: SessionState,
+    remoteAction: SessionEvent,
+    remoteTo: SessionState,
+  ): void {
+    this.local.dispatch(localAction, localTo);
+    this.remote.dispatch(remoteAction, remoteTo);
+    this.notifyStateChanged();
+  }
+
   // ===== Helper Methods for Undo/Restart Request Handling =====
 
   /**
@@ -197,6 +220,7 @@ export class State {
     this.pendingAction = null;
     this.pendingUndoCount = null;
     this.resumeTurn = null;
+    this.notifyStateChanged();
   }
 
   /**
@@ -247,8 +271,11 @@ export class State {
     this.local = new SessionFsm('idle');
     this.remote = new SessionFsm('idle');
     this.lastStart = null;
+    this.pendingAction = null;
+    this.pendingUndoCount = null;
     this.resumeTurn = null;
-    this.stateObserverManager.notifyGameReset();
+    this.notifyGameReset();
+    this.notifyStateChanged();
   }
 
   /**
@@ -274,13 +301,11 @@ export class State {
   public dispatchApprove(): void {
     const localState = this.local.getState();
     if (localState === 'waiting_approval') {
-      // Local was waiting, always go back to turn
-      this.local.dispatch('APPROVE', 'turn');
-      this.remote.dispatch('APPROVE', 'turn');
+      // Local requested the action; peer approved it.
+      this.dispatchPair('APPROVE', 'turn', 'APPROVE', 'remote_turn');
     } else if (localState === 'approving') {
-      // Local was confirming, peer takes turn
-      this.local.dispatch('APPROVE', 'remote_turn');
-      this.remote.dispatch('APPROVE', 'remote_turn');
+      // Peer requested the action; local approved it.
+      this.dispatchPair('APPROVE', 'remote_turn', 'APPROVE', 'turn');
     }
   }
 
@@ -293,9 +318,9 @@ export class State {
 
     if (localState === 'waiting_approval' || localState === 'approving') {
       // resumeTurn tells us who should have turn after rejection
-      const targetState = this.resumeTurn === 'local' ? 'turn' : 'remote_turn';
-      this.local.dispatch('REJECT', targetState);
-      this.remote.dispatch('REJECT', targetState);
+      const localTarget = this.resumeTurn === 'local' ? 'turn' : 'remote_turn';
+      const remoteTarget = this.resumeTurn === 'local' ? 'remote_turn' : 'turn';
+      this.dispatchPair('REJECT', localTarget, 'REJECT', remoteTarget);
     }
   }
 
@@ -320,14 +345,12 @@ export class State {
    * Based on who should have the turn after sync
    */
   public dispatchSyncComplete(nextPlayer: PlayerLabel): void {
-    if (nextPlayer === 'local') {
-      this.local.dispatch('SYNC_COMPLETE', 'turn');
-      this.remote.dispatch('SYNC_COMPLETE', 'remote_turn');
-    } else {
-      this.local.dispatch('SYNC_COMPLETE', 'remote_turn');
-      this.remote.dispatch('SYNC_COMPLETE', 'turn');
-    }
     this.resumeTurn = nextPlayer;
+    if (nextPlayer === 'local') {
+      this.dispatchPair('SYNC_COMPLETE', 'turn', 'SYNC_COMPLETE', 'remote_turn');
+    } else {
+      this.dispatchPair('SYNC_COMPLETE', 'remote_turn', 'SYNC_COMPLETE', 'turn');
+    }
   }
 
   // ===== Game Plugin Integration (Proxy Pattern) =====

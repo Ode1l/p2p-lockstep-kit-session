@@ -42,6 +42,25 @@ const createConnectedSession = () => {
   return { client, session };
 };
 
+const startGame = async () => {
+  const runtime = createConnectedSession();
+  runtime.client.inbound({ type: "READY", sid: "demo-room", from: "remote" });
+  await waitForBus();
+  runtime.session.actions.start();
+  await waitForBus();
+
+  assert.match(
+    runtime.session.state.getState("local"),
+    /^(turn|remote_turn)$/,
+  );
+  assert.match(
+    runtime.session.state.getState("remote"),
+    /^(turn|remote_turn)$/,
+  );
+
+  return runtime;
+};
+
 {
   const { client, session } = createConnectedSession();
   await waitForBus();
@@ -79,6 +98,124 @@ const createConnectedSession = () => {
 
   assert.equal(session.state.getState("local"), "could_start");
   assert.equal(session.state.getState("remote"), "ready");
+}
+
+{
+  const { client, session } = await startGame();
+  const snapshots = [];
+  session.observer.subscribe({
+    onStateChange(snapshot) {
+      snapshots.push(snapshot);
+    },
+    onGameEvent() {},
+  });
+
+  session.actions.restart();
+  await waitForBus();
+
+  assert.equal(session.state.getPendingAction(), "restart");
+  assert.equal(session.state.getState("local"), "waiting_approval");
+  assert.equal(session.state.getState("remote"), "approving");
+
+  client.inbound({
+    type: "APPROVE",
+    payload: { action: "restart" },
+    from: "remote",
+  });
+  await waitForBus();
+
+  assert.equal(session.state.getPendingAction(), null);
+  assert.equal(session.state.getState("local"), "idle");
+  assert.equal(session.state.getState("remote"), "idle");
+  assert.equal(
+    snapshots.some(
+      (snapshot) =>
+        snapshot.localState === "idle" &&
+        snapshot.remoteState === "idle" &&
+        snapshot.pendingAction === "restart",
+    ),
+    false,
+  );
+}
+
+{
+  const { client, session } = await startGame();
+  const beforeRestart = {
+    local: session.state.getState("local"),
+    remote: session.state.getState("remote"),
+  };
+
+  session.actions.restart();
+  await waitForBus();
+
+  client.inbound({
+    type: "REJECT",
+    payload: { action: "restart" },
+    from: "remote",
+  });
+  await waitForBus();
+
+  assert.equal(session.state.getPendingAction(), null);
+  assert.equal(session.state.getState("local"), beforeRestart.local);
+  assert.equal(session.state.getState("remote"), beforeRestart.remote);
+}
+
+{
+  const { client, session } = await startGame();
+  const snapshots = [];
+  session.observer.subscribe({
+    onStateChange(snapshot) {
+      snapshots.push(snapshot);
+    },
+    onGameEvent() {},
+  });
+
+  client.inbound({ type: "RESTART", from: "remote" });
+  await waitForBus();
+
+  assert.equal(session.state.getPendingAction(), "restart");
+  assert.equal(session.state.getState("local"), "approving");
+  assert.equal(session.state.getState("remote"), "waiting_approval");
+
+  session.actions.approve();
+  await waitForBus();
+
+  const sent = client.sent.at(-1);
+  assert.equal(sent.type, "APPROVE");
+  assert.equal(sent.payload.action, "restart");
+  assert.equal(session.state.getPendingAction(), null);
+  assert.equal(session.state.getState("local"), "idle");
+  assert.equal(session.state.getState("remote"), "idle");
+  assert.equal(
+    snapshots.some(
+      (snapshot) =>
+        snapshot.localState === "idle" &&
+        snapshot.remoteState === "idle" &&
+        snapshot.pendingAction === "restart",
+    ),
+    false,
+  );
+}
+
+{
+  const { client, session } = await startGame();
+  const beforeRestart = {
+    local: session.state.getState("local"),
+    remote: session.state.getState("remote"),
+  };
+
+  client.inbound({ type: "RESTART", from: "remote" });
+  await waitForBus();
+
+  session.actions.reject();
+  await waitForBus();
+
+  const sent = client.sent.at(-1);
+  assert.equal(sent.type, "REJECT");
+  assert.equal(sent.payload.action, "restart");
+  assert.equal(session.state.getPendingAction(), null);
+  assert.equal(session.state.getState("local"), beforeRestart.local);
+  assert.equal(session.state.getState("remote"), beforeRestart.remote);
 }
 
 console.log("serialization smoke passed");

@@ -1,5 +1,5 @@
 import type { NetworkClient } from 'p2p-lockstep-kit-network';
-import type { SessionMessage } from '../utils';
+import { parseSessionMessage, type SessionMessage } from '../utils';
 import type { BusMessageType, CommandBus } from './commandBus';
 
 /**
@@ -23,7 +23,7 @@ export class NetClient {
 
     // Forward incoming messages to the command bus
     this.client.onMessage((data) => {
-      const message = data as Partial<SessionMessage> & { type?: string };
+      const message = parseSessionMessage(data);
       if (!message || typeof message !== 'object' || !message.type) {
         return;
       }
@@ -76,7 +76,7 @@ export class NetClient {
       ...message,
       from: message.from ?? this.localPeerId ?? '',
     };
-    this.client.send(JSON.stringify(enriched));
+    this.client.send(enriched);
   }
 
   /**

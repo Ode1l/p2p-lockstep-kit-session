@@ -36,6 +36,13 @@ export const offline: CommandListener = (command) => {
     return;
   }
 
+  // ONLINE only means "reconnected" if the session FSM was already offline.
+  // Initial WebRTC connection is handled by the connection observer, not this
+  // recovery path.
+  if (state.getState('remote') !== 'offline') {
+    return;
+  }
+
   // ONLINE - peer reconnected
   if (!state.canAction('remote', 'ONLINE')) {
     console.warn('[Offline] Cannot transition to ONLINE from current state');

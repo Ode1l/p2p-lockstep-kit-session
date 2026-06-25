@@ -21,6 +21,18 @@ export const offline: CommandListener = (command) => {
   const bus = getBus();
 
   if (command.type === 'OFFLINE') {
+    // A disconnect makes an in-flight approval unverifiable. Model this as
+    // sync recovery: local waits in syncing, remote stays offline until ONLINE.
+    if (state.hasPendingAction()) {
+      const resumeTurn = state.getResumeTurn();
+
+      if (state.canAction('local', 'SYNC')) {
+        state.dispatch('local', 'SYNC', 'syncing');
+      }
+      state.clearPendingStates();
+      state.setResumeTurn(resumeTurn);
+    }
+
     // Peer disconnected - save current turn state for later recovery
     if (!state.canAction('remote', 'OFFLINE')) {
       console.warn('[Offline] Cannot transition to OFFLINE from current state');
@@ -28,7 +40,9 @@ export const offline: CommandListener = (command) => {
     }
 
     // Record who had the turn before going offline
-    const currentTurn = state.getState('local') === 'turn' ? 'local' : 'remote';
+    const currentTurn =
+      state.getResumeTurn() ??
+      (state.getState('local') === 'turn' ? 'local' : 'remote');
     state.setResumeTurn(currentTurn);
 
     // Transition to offline state

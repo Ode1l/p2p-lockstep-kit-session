@@ -68,12 +68,13 @@ const transitions: Transition[] = [
   { from: 'turn', event: 'REMOTE_RESTART', to: 'approving' },
   { from: 'remote_turn', event: 'REMOTE_RESTART', to: 'approving' },
 
-  // Approval outcomes when we were waiting
+  // Approval outcomes when we were waiting for the peer.
   { from: 'waiting_approval', event: 'APPROVE', to: 'turn' },
   { from: 'waiting_approval', event: 'REJECT', to: 'turn' },
   { from: 'waiting_approval', event: 'REJECT', to: 'remote_turn' },
 
-  // Approval outcomes when we were confirming
+  // Approval outcomes when we were confirming the peer's request.
+  // The target turn is explicit because resumeTurn decides who continues.
   { from: 'approving', event: 'APPROVE', to: 'remote_turn' },
   { from: 'approving', event: 'REJECT', to: 'remote_turn' },
   { from: 'approving', event: 'REJECT', to: 'turn' },

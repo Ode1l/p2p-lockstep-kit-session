@@ -162,6 +162,49 @@ const startGame = async () => {
 
 {
   const { client, session } = await startGame();
+  session.actions.restart();
+  await waitForBus();
+
+  assert.equal(session.state.getPendingAction(), "restart");
+
+  session.bus.dispatch({ type: "OFFLINE", from: "local" });
+  await waitForBus();
+
+  assert.equal(session.state.getPendingAction(), null);
+  assert.equal(session.state.getState("local"), "syncing");
+  assert.equal(session.state.getState("remote"), "offline");
+
+  session.bus.dispatch({ type: "ONLINE", from: "local" });
+  await waitForBus();
+  await waitForBus();
+
+  assert.equal(session.state.getPendingAction(), null);
+  assert.equal(session.state.getState("local"), "syncing");
+  assert.equal(session.state.getState("remote"), "syncing");
+  assert.equal(client.sent.at(-1).type, "SYNC_REQUEST");
+
+  client.inbound({
+    type: "SYNC_STATE",
+    payload: {
+      history: [{ turn: 1, player: "local", move: { step: "peer-move" } }],
+      lastStart: "local",
+      turn: "local",
+      resumeTurn: "local",
+    },
+    from: "remote",
+  });
+  await waitForBus();
+
+  assert.equal(session.state.getPendingAction(), null);
+  assert.equal(session.state.getState("local"), "remote_turn");
+  assert.equal(session.state.getState("remote"), "turn");
+  assert.equal(session.state.getHistory().length, 1);
+  assert.equal(session.state.getHistory()[0].player, "remote");
+  assert.equal(session.state.getLastStart(), "remote");
+}
+
+{
+  const { client, session } = await startGame();
   const snapshots = [];
   session.observer.subscribe({
     onStateChange(snapshot) {
@@ -216,6 +259,49 @@ const startGame = async () => {
   assert.equal(session.state.getPendingAction(), null);
   assert.equal(session.state.getState("local"), beforeRestart.local);
   assert.equal(session.state.getState("remote"), beforeRestart.remote);
+}
+
+{
+  const { client, session } = await startGame();
+  client.inbound({ type: "RESTART", from: "remote" });
+  await waitForBus();
+
+  assert.equal(session.state.getPendingAction(), "restart");
+
+  session.bus.dispatch({ type: "OFFLINE", from: "local" });
+  await waitForBus();
+
+  assert.equal(session.state.getPendingAction(), null);
+  assert.equal(session.state.getState("local"), "syncing");
+  assert.equal(session.state.getState("remote"), "offline");
+
+  session.bus.dispatch({ type: "ONLINE", from: "local" });
+  await waitForBus();
+  await waitForBus();
+
+  assert.equal(session.state.getPendingAction(), null);
+  assert.equal(session.state.getState("local"), "syncing");
+  assert.equal(session.state.getState("remote"), "syncing");
+  assert.equal(client.sent.at(-1).type, "SYNC_REQUEST");
+
+  client.inbound({
+    type: "SYNC_STATE",
+    payload: {
+      history: [{ turn: 1, player: "remote", move: { step: "local-move" } }],
+      lastStart: "remote",
+      turn: "remote",
+      resumeTurn: "remote",
+    },
+    from: "remote",
+  });
+  await waitForBus();
+
+  assert.equal(session.state.getPendingAction(), null);
+  assert.equal(session.state.getState("local"), "turn");
+  assert.equal(session.state.getState("remote"), "remote_turn");
+  assert.equal(session.state.getHistory().length, 1);
+  assert.equal(session.state.getHistory()[0].player, "local");
+  assert.equal(session.state.getLastStart(), "local");
 }
 
 console.log("serialization smoke passed");

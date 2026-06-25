@@ -2,6 +2,9 @@ import type { CommandListener } from '../commandBus';
 import { getState, send } from '../context';
 import type { PlayerLabel } from '../state/state';
 
+const fromPeerPerspective = (player: PlayerLabel): PlayerLabel =>
+  player === 'local' ? 'remote' : 'local';
+
 /**
  * Handle game state synchronization after disconnect/reconnect
  *
@@ -13,6 +16,9 @@ import type { PlayerLabel } from '../state/state';
  * - lastStart: Who started the last match (for turn rotation)
  * - turn: Current turn holder (to determine resume turn)
  * - resumeTurn: Who should have turn after sync (saved before disconnect)
+ *
+ * All player labels in SYNC_STATE are from the sender's perspective, so the
+ * receiver maps local <-> remote before applying them.
  *
  * Flow:
  * 1. Local disconnects -> offline handler records resumeTurn
@@ -27,14 +33,22 @@ export const sync: CommandListener = (command) => {
   if (command.type === 'SYNC_REQUEST') {
     if (command.from === 'local') {
       // Local player initiated sync (after reconnection)
-      if (!state.canAction('local', 'SYNC')) {
+      if (
+        state.getState('local') !== 'syncing' &&
+        !state.canAction('local', 'SYNC')
+      ) {
         console.warn('[Sync] Cannot SYNC from current state');
         return;
       }
 
-      // Both transition to syncing state
-      state.dispatch('local', 'SYNC', 'syncing');
-      state.dispatch('remote', 'SYNC', 'syncing');
+      // Both transition to syncing state. Local may already be syncing when
+      // OFFLINE abandoned a pending approval before ONLINE arrived.
+      if (state.getState('local') !== 'syncing') {
+        state.dispatch('local', 'SYNC', 'syncing');
+      }
+      if (state.getState('remote') !== 'syncing') {
+        state.dispatch('remote', 'SYNC', 'syncing');
+      }
 
       // Send request to peer (peer will respond with SYNC_STATE)
       send({ type: 'SYNC_REQUEST', from: '', payload: command.payload });
@@ -66,14 +80,19 @@ export const sync: CommandListener = (command) => {
 
   // Restore game history from peer
   if (payload.history && payload.history.length > 0) {
-    state.replaceHistory(payload.history);
+    state.replaceHistory(
+      payload.history.map((entry) => ({
+        ...entry,
+        player: fromPeerPerspective(entry.player),
+      })),
+    );
   } else {
     state.clearHistory();
   }
 
   // Restore match start player (for turn rotation in next match)
   if (payload.lastStart) {
-    state.setLastStart(payload.lastStart);
+    state.setLastStart(fromPeerPerspective(payload.lastStart));
   } else {
     state.setLastStart(null);
   }
@@ -84,11 +103,10 @@ export const sync: CommandListener = (command) => {
   let nextPlayer: PlayerLabel;
 
   if (payload.resumeTurn) {
-    // Use the saved resume turn if available
-    nextPlayer = payload.resumeTurn;
+    // Peer labels are from its own local/remote perspective.
+    nextPlayer = fromPeerPerspective(payload.resumeTurn);
   } else if (payload.turn) {
-    // Otherwise use current turn from peer
-    nextPlayer = payload.turn === 'local' ? 'local' : 'remote';
+    nextPlayer = fromPeerPerspective(payload.turn);
   } else {
     // Fallback to current state
     nextPlayer = state.getState('local') === 'turn' ? 'local' : 'remote';

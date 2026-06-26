@@ -1,6 +1,6 @@
 import type { CommandListener } from '../commandBus';
-import { getBus, getState, send } from '../context';
-import type { SessionMessage } from '../../utils';
+import { getState, send } from '../context';
+import { consoleLogger, type SessionMessage } from '../../utils';
 
 /**
  * Handle player move in game
@@ -10,15 +10,23 @@ import type { SessionMessage } from '../../utils';
  * 2. Dispatch state transitions
  * 3. Record move in history
  * 4. Check win condition using game plugin
- * 5. Send to peer or emit GAME_OVER if won
+ * 5. Always send MOVE to peer, then let both peers check GAME_OVER locally
  *
  * The game plugin is injected via state.setGamePlugin(), allowing
  * different games to provide their own rule validation and win logic.
  */
 export const move: CommandListener = (command) => {
   const state = getState();
-  const bus = getBus();
   const movePayload = command.payload;
+
+  consoleLogger.debug('[session:move] received', {
+    from: command.from,
+    payload: movePayload,
+    local: state.getState('local'),
+    remote: state.getState('remote'),
+    turn: state.getTurnCount(),
+    history: state.getHistory().length,
+  });
 
   if (command.from === 'local') {
     // Local player making a move
@@ -52,35 +60,37 @@ export const move: CommandListener = (command) => {
       move: movePayload,
     });
 
-    // ===== PROXY POINT 2: Check win condition using game plugin =====
-    const winner = state.checkWin();
-    if (winner) {
-      // Game ended - someone won
-      console.log('[Move] Game over, winner:', winner);
-
-      // Notify bus that game ended (for UI to display winner)
-      bus.emit('GAME_OVER', { winner, turn }, 'local');
-
-      // Send game over to peer
-      send({
-        type: 'GAME_OVER',
-        payload: { winner, turn },
-      });
-
-      // Transition both FSMs back to idle (game ready to restart)
-      state.dispatch('local', 'GAME_OVER');
-      state.dispatch('remote', 'GAME_OVER');
-      state.cleanupGame();
-      return;
-    }
-
-    // Send move to peer
     const message: SessionMessage = {
       type: 'MOVE',
       turn,
       payload: movePayload,
     };
     send(message);
+    consoleLogger.debug('[session:move] local move sent', {
+      turn,
+      payload: movePayload,
+    });
+
+    // ===== PROXY POINT 2: Check win condition using game plugin =====
+    const winner = state.checkWin();
+    if (winner) {
+      // Game ended - someone won
+      consoleLogger.debug('[session:move] game over detected', {
+        winner,
+        turn,
+      });
+
+      // Transition both FSMs back to idle (game ready to restart)
+      state.dispatch('local', 'GAME_OVER');
+      state.dispatch('remote', 'GAME_OVER');
+      state.cleanupGame();
+      consoleLogger.debug('[session:move] local game over applied', {
+        winner,
+        turn,
+      });
+      return;
+    }
+
     return;
   }
 
@@ -118,14 +128,21 @@ export const move: CommandListener = (command) => {
   const winner = state.checkWin();
   if (winner) {
     // Game ended - someone won
-    console.log('[Move] Game over, winner:', winner);
-
-    // Notify bus that game ended (for UI to display winner)
-    bus.emit('GAME_OVER', { winner, turn }, 'local');
+    consoleLogger.debug('[session:move] game over detected', { winner, turn });
 
     // Transition both FSMs back to idle (game ready to restart)
     state.dispatch('local', 'GAME_OVER');
     state.dispatch('remote', 'GAME_OVER');
     state.cleanupGame();
+    consoleLogger.debug('[session:move] remote game over applied', {
+      winner,
+      turn,
+    });
+    return;
   }
+
+  consoleLogger.debug('[session:move] remote move applied', {
+    turn,
+    payload: movePayload,
+  });
 };

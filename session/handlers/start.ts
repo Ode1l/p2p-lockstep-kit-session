@@ -1,6 +1,7 @@
 import type { CommandListener } from '../commandBus';
 import { getState, send } from '../context';
 import type { PlayerLabel } from '../state/state';
+import { consoleLogger } from '../../utils';
 
 /**
  * Determine next starter (turn order rotation)
@@ -21,6 +22,13 @@ const getNextStarter = (lastStarter: PlayerLabel | null): PlayerLabel => {
  */
 export const start: CommandListener = (command) => {
   const state = getState();
+  consoleLogger.debug('[session:start] received', {
+    from: command.from,
+    payload: command.payload,
+    local: state.getState('local'),
+    remote: state.getState('remote'),
+    lastStart: state.getLastStart(),
+  });
 
   if (command.from === 'local') {
     // Local player initiating START
@@ -39,6 +47,10 @@ export const start: CommandListener = (command) => {
     const localTarget = nextStarter === 'local' ? 'turn' : 'remote_turn';
     const remoteTarget = nextStarter === 'local' ? 'remote_turn' : 'turn';
 
+    if (state.getHistory().length > 0) {
+      state.clearHistory();
+      consoleLogger.debug('[session:start] cleared previous match history');
+    }
     state.setLastStart(nextStarter);
     state.dispatch('local', 'START', localTarget);
     state.dispatch('remote', 'REMOTE_START', remoteTarget);
@@ -48,6 +60,7 @@ export const start: CommandListener = (command) => {
       type: 'START',
       payload: { starter: nextStarter === 'local' ? 'sender' : 'receiver' },
     });
+    consoleLogger.debug('[session:start] local started', { nextStarter });
     return;
   }
 
@@ -76,7 +89,12 @@ export const start: CommandListener = (command) => {
   const localTarget = starter === 'local' ? 'turn' : 'remote_turn';
   const remoteTarget = starter === 'local' ? 'remote_turn' : 'turn';
 
+  if (state.getHistory().length > 0) {
+    state.clearHistory();
+    consoleLogger.debug('[session:start] cleared previous match history');
+  }
   state.setLastStart(starter);
   state.dispatch('local', 'REMOTE_START', localTarget);
   state.dispatch('remote', 'START', remoteTarget);
+  consoleLogger.debug('[session:start] remote started', { starter });
 };

@@ -1,9 +1,130 @@
 import type { CommandListener } from '../commandBus';
 import { getState, send } from '../context';
-import type { PlayerLabel } from '../state/state';
+import type { PlayerLabel, TurnEntry } from '../state/state';
+import { consoleLogger } from '../../utils';
 
 const fromPeerPerspective = (player: PlayerLabel): PlayerLabel =>
   player === 'local' ? 'remote' : 'local';
+
+type SyncPayload = {
+  history?: TurnEntry[];
+  lastStart?: PlayerLabel | null;
+  turn?: PlayerLabel;
+  resumeTurn?: PlayerLabel | null;
+};
+
+const getCurrentTurn = (): PlayerLabel => {
+  const state = getState();
+  return (
+    state.getResumeTurn() ??
+    (state.getState('local') === 'turn' ? 'local' : 'remote')
+  );
+};
+
+const buildSyncPayload = (): SyncPayload => {
+  const state = getState();
+  const turn = getCurrentTurn();
+
+  return {
+    history: state.getHistory(),
+    lastStart: state.getLastStart(),
+    turn,
+    resumeTurn: state.getResumeTurn(),
+  };
+};
+
+const isInSyncRecovery = (): boolean => {
+  const state = getState();
+  return (
+    state.getState('local') === 'syncing' ||
+    state.getState('remote') === 'syncing' ||
+    state.getState('remote') === 'offline' ||
+    state.getResumeTurn() !== null
+  );
+};
+
+const enterSyncState = (): boolean => {
+  const state = getState();
+
+  if (state.getState('local') !== 'syncing') {
+    if (!state.canAction('local', 'SYNC')) {
+      consoleLogger.debug('[session:sync] local cannot enter sync', {
+        local: state.getState('local'),
+      });
+      return false;
+    }
+    state.dispatch('local', 'SYNC', 'syncing');
+  }
+
+  if (state.getState('remote') === 'offline') {
+    if (!state.canAction('remote', 'ONLINE')) {
+      consoleLogger.debug('[session:sync] offline remote cannot enter sync', {
+        remote: state.getState('remote'),
+      });
+      return false;
+    }
+    state.dispatch('remote', 'ONLINE', 'syncing');
+  } else if (state.getState('remote') !== 'syncing') {
+    if (!state.canAction('remote', 'SYNC')) {
+      consoleLogger.debug('[session:sync] remote cannot enter sync', {
+        remote: state.getState('remote'),
+      });
+      return false;
+    }
+    state.dispatch('remote', 'SYNC', 'syncing');
+  }
+
+  return (
+    state.getState('local') === 'syncing' &&
+    state.getState('remote') === 'syncing'
+  );
+};
+
+const restoreFromPayload = (
+  payload: SyncPayload,
+  mapPeerLabels: boolean,
+): void => {
+  const state = getState();
+  const mapPlayer = mapPeerLabels
+    ? fromPeerPerspective
+    : (player: PlayerLabel) => player;
+
+  if (payload.history && payload.history.length > 0) {
+    state.replaceHistory(
+      payload.history.map((entry) => ({
+        ...entry,
+        player: mapPlayer(entry.player),
+      })),
+    );
+  } else {
+    state.clearHistory();
+  }
+
+  if (payload.lastStart) {
+    state.setLastStart(mapPlayer(payload.lastStart));
+  } else {
+    state.setLastStart(null);
+  }
+
+  const nextPlayer = payload.resumeTurn
+    ? mapPlayer(payload.resumeTurn)
+    : payload.turn
+      ? mapPlayer(payload.turn)
+      : getCurrentTurn();
+
+  consoleLogger.debug('[session:sync] state restored', {
+    historyLength: state.getHistory().length,
+    lastStart: state.getLastStart(),
+    nextTurnPlayer: nextPlayer,
+    mapped: mapPeerLabels,
+  });
+
+  if (!enterSyncState()) {
+    return;
+  }
+
+  state.dispatchSyncComplete(nextPlayer);
+};
 
 /**
  * Handle game state synchronization after disconnect/reconnect
@@ -29,6 +150,15 @@ const fromPeerPerspective = (player: PlayerLabel): PlayerLabel =>
  */
 export const sync: CommandListener = (command) => {
   const state = getState();
+  consoleLogger.debug('[session:sync] received', {
+    type: command.type,
+    from: command.from,
+    payload: command.payload,
+    local: state.getState('local'),
+    remote: state.getState('remote'),
+    history: state.getHistory().length,
+    resumeTurn: state.getResumeTurn(),
+  });
 
   if (command.type === 'SYNC_REQUEST') {
     if (command.from === 'local') {
@@ -52,17 +182,18 @@ export const sync: CommandListener = (command) => {
 
       // Send request to peer (peer will respond with SYNC_STATE)
       send({ type: 'SYNC_REQUEST', from: '', payload: command.payload });
+      consoleLogger.debug('[session:sync] request sent');
       return;
     }
 
-    // Remote initiated sync - respond with complete game state
-    const payload = {
-      history: state.getHistory(),
-      lastStart: state.getLastStart(),
-      turn: state.getState('local') === 'turn' ? 'local' : 'remote',
-      resumeTurn: state.getResumeTurn(), // Send back the saved resume turn
-    };
+    // Remote initiated sync. Send our current timeline first, then also close
+    // our own FSM recovery path; the peer might be the only side requesting.
+    const payload = buildSyncPayload();
     send({ type: 'SYNC_STATE', from: '', payload });
+    consoleLogger.debug('[session:sync] state sent', payload);
+    if (isInSyncRecovery()) {
+      restoreFromPayload(payload, false);
+    }
     return;
   }
 
@@ -70,55 +201,5 @@ export const sync: CommandListener = (command) => {
     return;
   }
 
-  // Received complete game state from peer
-  const payload = (command.payload as {
-    history?: Array<{ turn: number; player: 'local' | 'remote'; move?: unknown }>;
-    lastStart?: 'local' | 'remote' | null;
-    turn?: 'local' | 'remote';
-    resumeTurn?: 'local' | 'remote' | null;
-  }) || {};
-
-  // Restore game history from peer
-  if (payload.history && payload.history.length > 0) {
-    state.replaceHistory(
-      payload.history.map((entry) => ({
-        ...entry,
-        player: fromPeerPerspective(entry.player),
-      })),
-    );
-  } else {
-    state.clearHistory();
-  }
-
-  // Restore match start player (for turn rotation in next match)
-  if (payload.lastStart) {
-    state.setLastStart(fromPeerPerspective(payload.lastStart));
-  } else {
-    state.setLastStart(null);
-  }
-
-  // Determine who should have turn after sync
-  // Priority: 1) resumeTurn from peer (what they saved on disconnect)
-  //          2) turn from payload (whose turn it actually was)
-  let nextPlayer: PlayerLabel;
-
-  if (payload.resumeTurn) {
-    // Peer labels are from its own local/remote perspective.
-    nextPlayer = fromPeerPerspective(payload.resumeTurn);
-  } else if (payload.turn) {
-    nextPlayer = fromPeerPerspective(payload.turn);
-  } else {
-    // Fallback to current state
-    nextPlayer = state.getState('local') === 'turn' ? 'local' : 'remote';
-  }
-
-  console.log('[Sync] Restored game state', {
-    historyLength: state.getHistory().length,
-    lastStart: state.getLastStart(),
-    nextTurnPlayer: nextPlayer,
-  });
-
-  // Use special method for complex SYNC_COMPLETE transition
-  // This sets both local and remote FSM to correct 'turn'/'remote_turn' state
-  state.dispatchSyncComplete(nextPlayer);
+  restoreFromPayload((command.payload as SyncPayload) || {}, true);
 };

@@ -1,5 +1,15 @@
 import type { CommandListener } from '../commandBus';
 import { getState, send } from '../context';
+import { consoleLogger } from '../../utils';
+
+type RequestAction = 'undo' | 'restart';
+type RequestPayload = {
+  action?: string;
+  reason?: string;
+};
+
+const isRequestAction = (value: unknown): value is RequestAction =>
+  value === 'undo' || value === 'restart';
 
 /**
  * Handle approval/rejection of pending requests (undo/restart)
@@ -18,23 +28,51 @@ export const request: CommandListener = (command) => {
   }
 
   const state = getState();
-  const action = state.getPendingAction();
+  const payload = command.payload as RequestPayload | undefined;
+  const pendingAction = state.getPendingAction();
+  const action =
+    pendingAction ??
+    (command.from === 'local' &&
+    command.type === 'REJECT' &&
+    isRequestAction(payload?.action)
+      ? payload.action
+      : null);
+  consoleLogger.debug('[session:request] received', {
+    type: command.type,
+    from: command.from,
+    action,
+    local: state.getState('local'),
+    remote: state.getState('remote'),
+    history: state.getHistory().length,
+  });
 
-  // No pending action to respond to
   if (!action) {
     console.warn('[Request] No pending action', { commandType: command.type });
     return;
   }
 
-  const payload = command.payload as { action?: string; reason?: string } | undefined;
-
   // Verify payload matches pending action
   if (payload?.action && payload.action !== action) {
-    console.warn('[Request] Action mismatch', { pending: action, payload: payload.action });
+    console.warn('[Request] Action mismatch', {
+      pending: action,
+      payload: payload.action,
+    });
     return;
   }
 
   if (command.from === 'local') {
+    if (!pendingAction && command.type === 'REJECT') {
+      send({
+        type: 'REJECT',
+        payload: { action, reason: payload?.reason ?? 'rejected' },
+      });
+      consoleLogger.debug('[session:request] local auto rejected', {
+        action,
+        reason: payload?.reason,
+      });
+      return;
+    }
+
     if (command.type === 'APPROVE') {
       // Local player approves the request
       if (!state.canAction('local', 'APPROVE')) {
@@ -54,6 +92,7 @@ export const request: CommandListener = (command) => {
 
       send({ type: 'APPROVE', payload: { action } });
       state.clearPendingStates();
+      consoleLogger.debug('[session:request] local approved', { action });
       return;
     }
 
@@ -71,6 +110,7 @@ export const request: CommandListener = (command) => {
       payload: { action, reason: payload?.reason ?? 'rejected' },
     });
     state.clearPendingStates();
+    consoleLogger.debug('[session:request] local rejected', { action });
     return;
   }
 
@@ -78,7 +118,9 @@ export const request: CommandListener = (command) => {
   if (command.type === 'APPROVE') {
     // Remote player approves
     if (!state.canAction('local', 'APPROVE')) {
-      console.warn('[Request] Cannot APPROVE from current state (remote approved)');
+      console.warn(
+        '[Request] Cannot APPROVE from current state (remote approved)',
+      );
       return;
     }
 
@@ -93,12 +135,15 @@ export const request: CommandListener = (command) => {
     }
 
     state.clearPendingStates();
+    consoleLogger.debug('[session:request] remote approved', { action });
     return;
   }
 
   // REJECT from remote
   if (!state.canAction('local', 'REJECT')) {
-    console.warn('[Request] Cannot REJECT from current state (remote rejected)');
+    console.warn(
+      '[Request] Cannot REJECT from current state (remote rejected)',
+    );
     state.clearPendingStates();
     return;
   }
@@ -106,4 +151,5 @@ export const request: CommandListener = (command) => {
   // Use special method for complex REJECT transition
   state.dispatchReject();
   state.clearPendingStates();
+  consoleLogger.debug('[session:request] remote rejected', { action });
 };

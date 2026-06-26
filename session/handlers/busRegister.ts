@@ -21,5 +21,3 @@ export const registerHandlers = (bus: CommandBus) => {
   bus.register('APPROVE', request);
   bus.register('REJECT', request);
 };
-
-

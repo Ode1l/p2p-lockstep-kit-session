@@ -1,5 +1,6 @@
 import type { PlayerLabel, TurnEntry, State } from '../state/state';
 import type { SessionState } from '../state/fsm';
+import { consoleLogger } from '../../utils';
 
 export interface GameStateSnapshot {
   localState: SessionState;
@@ -12,7 +13,17 @@ export interface GameStateSnapshot {
 }
 
 export interface GameEvent {
-  type: 'READY' | 'START' | 'MOVE' | 'GAME_OVER' | 'UNDO' | 'RESTART' | 'OFFLINE' | 'ONLINE' | 'SYNC' | 'ERROR';
+  type:
+    | 'READY'
+    | 'START'
+    | 'MOVE'
+    | 'GAME_OVER'
+    | 'UNDO'
+    | 'RESTART'
+    | 'OFFLINE'
+    | 'ONLINE'
+    | 'SYNC'
+    | 'ERROR';
   payload?: any;
   from?: 'local' | 'remote';
   timestamp?: number;
@@ -168,7 +179,10 @@ export class GameStateObserver {
   }
 }
 
-export function buildGameStateSnapshot(state: State, connected: boolean = false): GameStateSnapshot {
+export function buildGameStateSnapshot(
+  state: State,
+  connected: boolean = false,
+): GameStateSnapshot {
   return {
     localState: state.getState('local'),
     remoteState: state.getState('remote'),
@@ -196,12 +210,24 @@ export class UINotificationAdapter implements IStateObserver {
     this.lastNotificationTime = now;
 
     const snapshot = buildGameStateSnapshot(this.stateRef, this.getConnected());
+    consoleLogger.debug('[session:observer] state snapshot', {
+      local: snapshot.localState,
+      remote: snapshot.remoteState,
+      turn: snapshot.turn,
+      history: snapshot.history.length,
+      pending: snapshot.pendingAction,
+      connected: snapshot.connected,
+    });
     this.uiObserver.notifyStateChange(snapshot);
   }
 
-  onHistoryChanged(): void {}
+  onHistoryChanged(): void {
+    this.onStateChanged();
+  }
 
-  onGameReset(): void {}
+  onGameReset(): void {
+    this.onStateChanged();
+  }
 
   emitEvent(event: Omit<GameEvent, 'timestamp'>): void {
     this.uiObserver.notifyGameEvent(event as GameEvent);

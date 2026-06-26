@@ -1,5 +1,6 @@
 import type { CommandListener } from '../commandBus';
 import { getBus, getState } from '../context';
+import { consoleLogger } from '../../utils';
 
 /**
  * Handle connection state changes (OFFLINE/ONLINE)
@@ -19,6 +20,14 @@ export const offline: CommandListener = (command) => {
 
   const state = getState();
   const bus = getBus();
+  consoleLogger.debug('[session:connection] received', {
+    type: command.type,
+    from: command.from,
+    local: state.getState('local'),
+    remote: state.getState('remote'),
+    pending: state.getPendingAction(),
+    resumeTurn: state.getResumeTurn(),
+  });
 
   if (command.type === 'OFFLINE') {
     // A disconnect makes an in-flight approval unverifiable. Model this as
@@ -47,6 +56,7 @@ export const offline: CommandListener = (command) => {
 
     // Transition to offline state
     state.dispatch('remote', 'OFFLINE', 'offline');
+    consoleLogger.debug('[session:connection] remote offline', { currentTurn });
     return;
   }
 
@@ -54,6 +64,12 @@ export const offline: CommandListener = (command) => {
   // Initial WebRTC connection is handled by the connection observer, not this
   // recovery path.
   if (state.getState('remote') !== 'offline') {
+    consoleLogger.debug(
+      '[session:connection] ignored online while remote is not offline',
+      {
+        remote: state.getState('remote'),
+      },
+    );
     return;
   }
 
@@ -72,4 +88,5 @@ export const offline: CommandListener = (command) => {
   // 2. Receive SYNC_STATE from peer
   // 3. Restore history and correct turn assignment
   bus.emit('SYNC_REQUEST', undefined, 'local');
+  consoleLogger.debug('[session:connection] remote online, sync requested');
 };

@@ -1,6 +1,6 @@
 import type { CommandListener } from '../commandBus';
 import { getBus, getSid, getState, send } from '../context';
-import type { SessionMessage } from '../../utils';
+import { consoleLogger, type SessionMessage } from '../../utils';
 
 /**
  * Handle player ready status notification
@@ -15,6 +15,13 @@ export const ready: CommandListener = (command) => {
   const state = getState();
   const bus = getBus();
   const localSid = getSid();
+  consoleLogger.debug('[session:ready] received', {
+    from: command.from,
+    sid: (command as any).sid,
+    localSid,
+    local: state.getState('local'),
+    remote: state.getState('remote'),
+  });
 
   if (command.from === 'local') {
     // Local player initiating READY
@@ -33,6 +40,10 @@ export const ready: CommandListener = (command) => {
       sid: localSid,
     };
     send(message);
+    consoleLogger.debug('[session:ready] local toggled', {
+      local: state.getState('local'),
+      remote: state.getState('remote'),
+    });
     return;
   }
 
@@ -60,4 +71,8 @@ export const ready: CommandListener = (command) => {
   // Execute state transitions
   state.dispatch('remote', 'READY');
   state.dispatch('local', 'REMOTE_READY');
+  consoleLogger.debug('[session:ready] remote toggled', {
+    local: state.getState('local'),
+    remote: state.getState('remote'),
+  });
 };

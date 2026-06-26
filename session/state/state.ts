@@ -6,6 +6,7 @@ import type {
   IStateObserver,
 } from '../observer';
 import { DefaultGamePlugin, StateObserverManager } from '../observer';
+import { consoleLogger } from '../../utils';
 
 export type TurnEntry = {
   turn: number;
@@ -43,6 +44,7 @@ export class State {
     if (remoteId) {
       this.remoteId = remoteId;
     }
+    consoleLogger.debug('[session:state] created', { localId: id, remoteId });
   }
 
   /**
@@ -65,6 +67,7 @@ export class State {
 
   public setremoteId(id: string) {
     this.remoteId = id;
+    consoleLogger.debug('[session:state] remote id set', { remoteId: id });
   }
 
   public getState(player: PlayerLabel): SessionState {
@@ -80,6 +83,7 @@ export class State {
   }
 
   public replaceHistory(entries: TurnEntry[]): void {
+    consoleLogger.debug('[session:history] replace', { count: entries.length });
     this.clearHistory();
     entries.forEach((entry) => {
       this.pushHistory({
@@ -91,23 +95,38 @@ export class State {
   }
 
   public clearHistory(): void {
+    const count = this.history.length;
     this.history.splice(0, this.history.length);
+    consoleLogger.debug('[session:history] clear', { count });
     this.notifyHistoryChanged();
   }
 
   public pushHistory(entry: TurnEntry): void {
     this.history.push(entry);
+    consoleLogger.debug('[session:history] push', {
+      turn: entry.turn,
+      player: entry.player,
+      move: entry.move,
+      count: this.history.length,
+    });
     this.notifyHistoryChanged();
   }
 
   public popHistory(): TurnEntry | null {
-    return this.history.pop() ?? null;
+    const entry = this.history.pop() ?? null;
+    if (entry) {
+      consoleLogger.debug('[session:history] pop', {
+        turn: entry.turn,
+        player: entry.player,
+        move: entry.move,
+        count: this.history.length,
+      });
+      this.notifyHistoryChanged();
+    }
+    return entry;
   }
 
-  public canAction(
-    player: PlayerLabel,
-    action: SessionEvent,
-  ): boolean {
+  public canAction(player: PlayerLabel, action: SessionEvent): boolean {
     return this.getPlayerFsm(player).hasNextState(action);
   }
 
@@ -123,12 +142,27 @@ export class State {
     action: SessionEvent,
     to?: SessionState,
   ): void {
+    const before = this.getState(player);
     this.getPlayerFsm(player).dispatch(action, to);
-    // Notify all state observers after state change
+    const after = this.getState(player);
+    consoleLogger.debug(`[session:fsm] ${player} ${action}`, {
+      from: before,
+      to: after,
+      requested: to,
+      local: this.getState('local'),
+      remote: this.getState('remote'),
+      turn: this.getTurnCount(),
+      history: this.history.length,
+      pending: this.pendingAction,
+    });
     this.notifyStateChanged();
   }
 
   public setPendingAction(action: 'undo' | 'restart' | null) {
+    consoleLogger.debug('[session:state] pending action set', {
+      from: this.pendingAction,
+      to: action,
+    });
     this.pendingAction = action;
   }
 
@@ -137,6 +171,10 @@ export class State {
   }
 
   public setPendingUndoCount(count: 1 | 2 | null) {
+    consoleLogger.debug('[session:state] pending undo count set', {
+      from: this.pendingUndoCount,
+      to: count,
+    });
     this.pendingUndoCount = count;
   }
 
@@ -145,6 +183,10 @@ export class State {
   }
 
   public setLastStart(player: PlayerLabel | null) {
+    consoleLogger.debug('[session:state] last start set', {
+      from: this.lastStart,
+      to: player,
+    });
     this.lastStart = player;
   }
 
@@ -153,6 +195,10 @@ export class State {
   }
 
   public setResumeTurn(player: PlayerLabel | null) {
+    consoleLogger.debug('[session:state] resume turn set', {
+      from: this.resumeTurn,
+      to: player,
+    });
     this.resumeTurn = player;
   }
 
@@ -165,14 +211,27 @@ export class State {
   }
 
   private notifyStateChanged(): void {
+    consoleLogger.debug('[session:state] notify state changed', {
+      local: this.getState('local'),
+      remote: this.getState('remote'),
+      turn: this.getTurnCount(),
+      history: this.history.length,
+      pending: this.pendingAction,
+    });
     this.stateObserverManager.notifyStateChanged();
   }
 
   private notifyHistoryChanged(): void {
+    consoleLogger.debug('[session:state] notify history changed', {
+      turn: this.getTurnCount(),
+      history: this.history.length,
+      pending: this.pendingAction,
+    });
     this.stateObserverManager.notifyHistoryChanged();
   }
 
   private notifyGameReset(): void {
+    consoleLogger.debug('[session:state] notify game reset');
     this.stateObserverManager.notifyGameReset();
   }
 
@@ -182,8 +241,26 @@ export class State {
     remoteAction: SessionEvent,
     remoteTo: SessionState,
   ): void {
+    const before = {
+      local: this.local.getState(),
+      remote: this.remote.getState(),
+    };
     this.local.dispatch(localAction, localTo);
     this.remote.dispatch(remoteAction, remoteTo);
+    consoleLogger.debug('[session:fsm] pair dispatch', {
+      before,
+      after: {
+        local: this.local.getState(),
+        remote: this.remote.getState(),
+      },
+      localAction,
+      localTo,
+      remoteAction,
+      remoteTo,
+      turn: this.getTurnCount(),
+      history: this.history.length,
+      pending: this.pendingAction,
+    });
     this.notifyStateChanged();
   }
 
@@ -196,6 +273,7 @@ export class State {
 
   public saveGameSnapshot(snapshot: unknown): void {
     this.gameSnapshot = snapshot;
+    consoleLogger.debug('[session:state] game snapshot saved', { snapshot });
   }
 
   public getGameSnapshot(): unknown {
@@ -204,6 +282,7 @@ export class State {
 
   public clearGameSnapshot(): void {
     this.gameSnapshot = null;
+    consoleLogger.debug('[session:state] game snapshot cleared');
   }
 
   /**
@@ -217,6 +296,11 @@ export class State {
    * Clear all pending states (called after approval/rejection)
    */
   public clearPendingStates(): void {
+    consoleLogger.debug('[session:state] pending states cleared', {
+      pending: this.pendingAction,
+      pendingUndoCount: this.pendingUndoCount,
+      resumeTurn: this.resumeTurn,
+    });
     this.pendingAction = null;
     this.pendingUndoCount = null;
     this.resumeTurn = null;
@@ -226,10 +310,17 @@ export class State {
   /**
    * Initialize undo request with undo count and current turn holder
    */
-  public initializeUndoRequest(undoCount: 1 | 2, resumeTurn: PlayerLabel): void {
+  public initializeUndoRequest(
+    undoCount: 1 | 2,
+    resumeTurn: PlayerLabel,
+  ): void {
     this.pendingAction = 'undo';
     this.pendingUndoCount = undoCount;
     this.resumeTurn = resumeTurn;
+    consoleLogger.debug('[session:state] undo request initialized', {
+      undoCount,
+      resumeTurn,
+    });
   }
 
   /**
@@ -238,6 +329,9 @@ export class State {
   public initializeRestartRequest(resumeTurn: PlayerLabel): void {
     this.pendingAction = 'restart';
     this.resumeTurn = resumeTurn;
+    consoleLogger.debug('[session:state] restart request initialized', {
+      resumeTurn,
+    });
   }
 
   /**
@@ -258,6 +352,7 @@ export class State {
    * Apply undo by popping history N times
    */
   public applyUndo(count: 1 | 2 = 1): void {
+    consoleLogger.debug('[session:history] apply undo', { count });
     for (let i = 0; i < count; i++) {
       this.popHistory();
     }
@@ -267,6 +362,13 @@ export class State {
    * Reset game state to initial (for restart)
    */
   public resetGame(): void {
+    consoleLogger.debug('[session:state] reset game', {
+      local: this.getState('local'),
+      remote: this.getState('remote'),
+      history: this.history.length,
+      lastStart: this.lastStart,
+      pending: this.pendingAction,
+    });
     this.clearHistory();
     this.local = new SessionFsm('idle');
     this.remote = new SessionFsm('idle');
@@ -283,13 +385,16 @@ export class State {
    */
   public recordStartPlayer(player: PlayerLabel): void {
     this.lastStart = player;
+    consoleLogger.debug('[session:state] start player recorded', { player });
   }
 
   /**
    * Get move to undo from history
    */
   public getLastMove(): TurnEntry | null {
-    return this.history.length > 0 ? this.history[this.history.length - 1] : null;
+    return this.history.length > 0
+      ? this.history[this.history.length - 1]
+      : null;
   }
 
   // ===== Specialized FSM Dispatch Methods =====
@@ -329,6 +434,11 @@ export class State {
    * Determines who plays first based on starter parameter
    */
   public dispatchStart(firstPlayer: PlayerLabel): void {
+    const before = {
+      local: this.local.getState(),
+      remote: this.remote.getState(),
+      lastStart: this.lastStart,
+    };
     if (firstPlayer === 'local') {
       this.local.dispatch('START', 'turn');
       this.remote.dispatch('START', 'remote_turn');
@@ -338,6 +448,16 @@ export class State {
       this.remote.dispatch('START', 'turn');
       this.lastStart = 'remote';
     }
+    consoleLogger.debug('[session:fsm] start dispatch', {
+      before,
+      firstPlayer,
+      after: {
+        local: this.local.getState(),
+        remote: this.remote.getState(),
+        lastStart: this.lastStart,
+      },
+    });
+    this.notifyStateChanged();
   }
 
   /**
@@ -345,12 +465,22 @@ export class State {
    * Based on who should have the turn after sync
    */
   public dispatchSyncComplete(nextPlayer: PlayerLabel): void {
-    this.resumeTurn = nextPlayer;
     if (nextPlayer === 'local') {
-      this.dispatchPair('SYNC_COMPLETE', 'turn', 'SYNC_COMPLETE', 'remote_turn');
+      this.dispatchPair(
+        'SYNC_COMPLETE',
+        'turn',
+        'SYNC_COMPLETE',
+        'remote_turn',
+      );
     } else {
-      this.dispatchPair('SYNC_COMPLETE', 'remote_turn', 'SYNC_COMPLETE', 'turn');
+      this.dispatchPair(
+        'SYNC_COMPLETE',
+        'remote_turn',
+        'SYNC_COMPLETE',
+        'turn',
+      );
     }
+    this.resumeTurn = null;
   }
 
   // ===== Game Plugin Integration (Proxy Pattern) =====
@@ -361,6 +491,10 @@ export class State {
    */
   public setGamePlugin(plugin: IGamePlugin): void {
     this.gamePlugin = plugin;
+    consoleLogger.debug('[session:plugin] game plugin set', {
+      hasInitialize: Boolean(plugin.initialize),
+      hasCleanup: Boolean(plugin.cleanup),
+    });
     if (plugin.initialize) {
       plugin.initialize();
     }
@@ -381,7 +515,16 @@ export class State {
    */
   public validateMove(move: unknown): ValidationResult {
     const gameState = this.buildGameState();
-    return this.gamePlugin.validateMove(move, gameState);
+    const result = this.gamePlugin.validateMove(move, gameState);
+    consoleLogger.debug('[session:plugin] validate move', {
+      move,
+      result,
+      local: gameState.localState,
+      remote: gameState.remoteState,
+      turn: gameState.turn,
+      history: gameState.history.length,
+    });
+    return result;
   }
 
   /**
@@ -391,7 +534,13 @@ export class State {
    */
   public checkWin(): PlayerLabel | null {
     const gameState = this.buildGameState();
-    return this.gamePlugin.checkWin(gameState, this.getHistory());
+    const winner = this.gamePlugin.checkWin(gameState, this.getHistory());
+    consoleLogger.debug('[session:plugin] check win', {
+      winner,
+      turn: gameState.turn,
+      history: gameState.history.length,
+    });
+    return winner;
   }
 
   /**
@@ -401,6 +550,7 @@ export class State {
     if (this.gamePlugin.cleanup) {
       this.gamePlugin.cleanup();
     }
+    consoleLogger.debug('[session:plugin] cleanup game');
   }
 
   /**

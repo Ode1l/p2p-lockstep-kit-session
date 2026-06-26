@@ -82,11 +82,8 @@ export const offline: CommandListener = (command) => {
   // Transition to syncing state
   state.dispatch('remote', 'ONLINE', 'syncing');
 
-  // Trigger sync to restore game state
-  // sync handler will:
-  // 1. Send SYNC_REQUEST
-  // 2. Receive SYNC_STATE from peer
-  // 3. Restore history and correct turn assignment
-  bus.emit('SYNC_REQUEST', undefined, 'local');
-  consoleLogger.debug('[session:connection] remote online, sync requested');
+  // We kept the authoritative timeline while the peer was away, so push our
+  // state to the reconnecting peer instead of asking it for a possibly empty one.
+  bus.emit('SYNC_STATE', undefined, 'local');
+  consoleLogger.debug('[session:connection] remote online, sync state pushed');
 };

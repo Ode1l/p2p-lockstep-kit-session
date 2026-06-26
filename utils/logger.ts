@@ -8,13 +8,14 @@ export type Logger = {
 const logWith =
   (level: 'debug' | 'info' | 'warn' | 'error') =>
   (message: string, meta?: unknown) => {
+    const write = level === 'debug' ? console.info : console[level];
     if (meta !== undefined) {
       // eslint-disable-next-line no-console
-      console[level](message, meta);
+      write(message, meta);
       return;
     }
     // eslint-disable-next-line no-console
-    console[level](message);
+    write(message);
   };
 
 export const consoleLogger: Logger = {

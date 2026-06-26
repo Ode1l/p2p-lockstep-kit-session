@@ -201,5 +201,15 @@ export const sync: CommandListener = (command) => {
     return;
   }
 
+  if (command.from === 'local') {
+    const payload = buildSyncPayload();
+    send({ type: 'SYNC_STATE', from: '', payload });
+    consoleLogger.debug('[session:sync] state pushed', payload);
+    if (isInSyncRecovery()) {
+      restoreFromPayload(payload, false);
+    }
+    return;
+  }
+
   restoreFromPayload((command.payload as SyncPayload) || {}, true);
 };

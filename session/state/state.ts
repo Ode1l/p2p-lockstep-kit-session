@@ -11,10 +11,11 @@ import { consoleLogger } from '../../utils';
 export type TurnEntry = {
   turn: number;
   player: 'local' | 'remote';
-  move?: any;
+  move?: unknown;
 };
 
 export type PlayerLabel = 'local' | 'remote';
+export type PendingAction = 'undo' | 'restart' | null;
 
 export class State {
   // will update map when multi-players (>=3)
@@ -26,7 +27,7 @@ export class State {
   // store all actions
   private readonly history: TurnEntry[] = [];
   // pending some state
-  private pendingAction: 'undo' | 'restart' | null = null;
+  private pendingAction: PendingAction = null;
   private pendingUndoCount: 1 | 2 | null = null;
   private resumeTurn: PlayerLabel | null = null;
   private lastStart: PlayerLabel | null = null;
@@ -158,7 +159,7 @@ export class State {
     this.notifyStateChanged();
   }
 
-  public setPendingAction(action: 'undo' | 'restart' | null) {
+  public setPendingAction(action: PendingAction) {
     consoleLogger.debug('[session:state] pending action set', {
       from: this.pendingAction,
       to: action,
@@ -166,7 +167,7 @@ export class State {
     this.pendingAction = action;
   }
 
-  public getPendingAction() {
+  public getPendingAction(): PendingAction {
     return this.pendingAction;
   }
 

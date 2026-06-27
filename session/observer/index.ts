@@ -1,4 +1,9 @@
-import type { PlayerLabel, TurnEntry, State } from '../state/state';
+import type {
+  PendingAction,
+  PlayerLabel,
+  TurnEntry,
+  State,
+} from '../state/state';
 import type { SessionState } from '../state/fsm';
 import { consoleLogger } from '../../utils';
 
@@ -8,7 +13,7 @@ export interface GameStateSnapshot {
   turn: number;
   history: TurnEntry[];
   lastStart: PlayerLabel | null;
-  pendingAction: 'undo' | 'restart' | null;
+  pendingAction: PendingAction;
   connected: boolean;
 }
 
@@ -24,7 +29,7 @@ export interface GameEvent {
     | 'ONLINE'
     | 'SYNC'
     | 'ERROR';
-  payload?: any;
+  payload?: unknown;
   from?: 'local' | 'remote';
   timestamp?: number;
 }
@@ -33,7 +38,7 @@ export interface IGameObserver {
   onStateChange(snapshot: GameStateSnapshot): void;
   onGameEvent(event: GameEvent): void;
   onConnectionChange?(connected: boolean): void;
-  onError?(error: { message: string; context?: any }): void;
+  onError?(error: { message: string; context?: unknown }): void;
 }
 
 export interface IStateObserver {
@@ -160,7 +165,7 @@ export class GameStateObserver {
     }
   }
 
-  notifyError(error: { message: string; context?: any }): void {
+  notifyError(error: { message: string; context?: unknown }): void {
     for (const observer of this.observers) {
       try {
         observer.onError?.(error);

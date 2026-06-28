@@ -90,7 +90,7 @@ throw new Error(
 ```typescript
 /**
  * Create a new game session with state management and networking
- * @param sid Session ID for rejoining (optional)
+ * @param sid Protocol scope identifier shared by both peers (optional)
  * @param networkClient Custom network client (optional)
  * @returns Session manager with bus, state, net, and send method
  */
@@ -304,5 +304,4 @@ jobs:
 5. **可维护** - 清晰的代码结构和文档
 
 继续这个方向，为 State 和 handlers 补充测试，会让整个项目更加稳定和可维护！
-
 

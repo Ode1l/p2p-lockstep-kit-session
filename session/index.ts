@@ -13,7 +13,7 @@ import { LocalActionsAPI } from './actions';
 
 /**
  * Create a new game session with state management and networking
- * @param sid Session ID for rejoining (optional)
+ * @param sid Protocol scope identifier shared by both peers (optional)
  * @param networkClient Custom network client (optional, creates default if not provided)
  * @returns Session manager with bus, state, observer, net, and send method
  *

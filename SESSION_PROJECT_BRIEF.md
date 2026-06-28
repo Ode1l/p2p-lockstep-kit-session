@@ -81,7 +81,7 @@ This design makes the session behavior explicit and predictable:
 
 ### Main States
 
-- `idle`: default lobby state.
+- `idle`: default pre-match state.
 - `ready`: local peer is ready.
 - `could_start`: the match can start.
 - `turn`: local player has the turn.
@@ -132,7 +132,8 @@ stateDiagram-v2
 - `turn + UNDO -> waiting_approval`
 - `offline + ONLINE -> syncing`
 
-These transitions show how the FSM separates lobby flow, gameplay flow, request flow, and reconnect flow.
+These transitions show how the FSM separates pre-match readiness, gameplay,
+request approval, and reconnect synchronization.
 
 ## Session Envelope and Protocol Design
 
@@ -148,7 +149,6 @@ type SessionMessage = {
     | 'RESTART'
     | 'APPROVE'
     | 'REJECT'
-    | 'REJOIN'
     | 'SYNC_REQUEST'
     | 'SYNC_STATE'
     | 'OFFLINE'
@@ -175,13 +175,13 @@ type SessionMessage = {
 
 ### Protocol Semantics
 
-- `READY` / `START`: control lobby readiness and match start.
+- `READY` / `START`: control pre-match readiness and match start.
 - `MOVE`: carries gameplay actions in lockstep order.
 - `UNDO` / `RESTART`: request state-changing operations that may require approval.
 - `APPROVE` / `REJECT`: resolve pending requests.
 - `SYNC_REQUEST` / `SYNC_STATE`: recover session state after reconnect.
 - `OFFLINE` / `ONLINE`: represent connection changes.
-- `GAME_OVER`: ends the current match and returns the session to lobby flow.
+- `GAME_OVER`: ends the current match and returns the session to its pre-match state.
 
 ### Example Payloads
 

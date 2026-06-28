@@ -8,7 +8,6 @@ export interface ISessionActions {
   restart(): void;
   approve(): void;
   reject(): void;
-  rejoin(sid: string): void;
 }
 
 export class LocalActionsAPI implements ISessionActions {
@@ -41,9 +40,4 @@ export class LocalActionsAPI implements ISessionActions {
   reject(): void {
     this.bus.emit('REJECT');
   }
-
-  rejoin(sid: string): void {
-    this.bus.emit('REJOIN', { sid });
-  }
 }
-

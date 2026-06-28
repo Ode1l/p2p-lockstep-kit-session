@@ -8,7 +8,6 @@ export type SessionMessageType =
   | 'RESTART'
   | 'APPROVE'
   | 'REJECT'
-  | 'REJOIN'
   | 'SYNC_REQUEST'
   | 'SYNC_STATE'
   | 'OFFLINE'

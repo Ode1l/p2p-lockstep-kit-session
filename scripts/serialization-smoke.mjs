@@ -34,7 +34,7 @@ class BoundaryClient {
 
 const createConnectedSession = () => {
   const client = new BoundaryClient();
-  const session = createSession(client, 'demo-room');
+  const session = createSession(client, 'demo-session');
 
   session.net.setPeerIds({ local: 'local', remote: 'remote' });
   client.connect();
@@ -44,7 +44,7 @@ const createConnectedSession = () => {
 
 const startGame = async () => {
   const runtime = createConnectedSession();
-  runtime.client.inbound({ type: 'READY', sid: 'demo-room', from: 'remote' });
+  runtime.client.inbound({ type: 'READY', sid: 'demo-session', from: 'remote' });
   await waitForBus();
   runtime.session.actions.start();
   await waitForBus();
@@ -60,7 +60,7 @@ const startGame = async () => {
 
 const startGameWithFirstPlayer = async (firstPlayer) => {
   const runtime = createConnectedSession();
-  runtime.client.inbound({ type: 'READY', sid: 'demo-room', from: 'remote' });
+  runtime.client.inbound({ type: 'READY', sid: 'demo-session', from: 'remote' });
   await waitForBus();
   runtime.session.state.setLastStart(
     firstPlayer === 'local' ? 'remote' : 'local',
@@ -99,7 +99,7 @@ const oneMoveWinPlugin = {
   const sent = client.sent.at(-1);
   assert.equal(typeof sent, 'object');
   assert.equal(sent.type, 'READY');
-  assert.equal(sent.sid, 'demo-room');
+  assert.equal(sent.sid, 'demo-session');
   assert.equal(session.state.getState('local'), 'ready');
   assert.equal(session.state.getState('remote'), 'could_start');
 }
@@ -108,7 +108,7 @@ const oneMoveWinPlugin = {
   const { client, session } = createConnectedSession();
   await waitForBus();
 
-  client.inbound({ type: 'READY', sid: 'demo-room', from: 'remote' });
+  client.inbound({ type: 'READY', sid: 'demo-session', from: 'remote' });
   await waitForBus();
 
   assert.equal(session.state.getState('local'), 'could_start');
@@ -120,7 +120,7 @@ const oneMoveWinPlugin = {
   await waitForBus();
 
   client.inbound(
-    JSON.stringify({ type: 'READY', sid: 'demo-room', from: 'remote' }),
+    JSON.stringify({ type: 'READY', sid: 'demo-session', from: 'remote' }),
   );
   await waitForBus();
 
@@ -238,7 +238,7 @@ const oneMoveWinPlugin = {
   assert.equal(session.state.getState('local'), 'idle');
   assert.equal(session.state.getState('remote'), 'idle');
 
-  client.inbound({ type: 'READY', sid: 'demo-room', from: 'remote' });
+  client.inbound({ type: 'READY', sid: 'demo-session', from: 'remote' });
   await waitForBus();
   session.actions.start();
   await waitForBus();

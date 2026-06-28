@@ -23,7 +23,6 @@ export type SessionEvent =
   | 'APPROVE'
   | 'REJECT'
   | 'GAME_OVER'
-  | 'REJOIN'
   | 'SYNC'
   | 'SYNC_COMPLETE'
   | 'OFFLINE'
@@ -36,7 +35,7 @@ export type Transition = {
 };
 
 const transitions: Transition[] = [
-  // Lobby readiness
+  // Pre-match readiness
   { from: 'idle', event: 'READY', to: 'ready' },
   { from: 'ready', event: 'READY', to: 'idle' },
   { from: 'idle', event: 'REMOTE_READY', to: 'could_start' },
@@ -79,7 +78,7 @@ const transitions: Transition[] = [
   { from: 'approving', event: 'REJECT', to: 'remote_turn' },
   { from: 'approving', event: 'REJECT', to: 'turn' },
 
-  // Game end resets back to lobby idle
+  // Game end resets back to the pre-match idle state
   { from: 'turn', event: 'GAME_OVER', to: 'idle' },
   { from: 'remote_turn', event: 'GAME_OVER', to: 'idle' },
 

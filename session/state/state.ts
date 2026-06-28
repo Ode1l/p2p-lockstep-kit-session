@@ -382,7 +382,7 @@ export class State {
   }
 
   /**
-   * Save start player for rejoin flow
+   * Save start player for reconnect synchronization
    */
   public recordStartPlayer(player: PlayerLabel): void {
     this.lastStart = player;

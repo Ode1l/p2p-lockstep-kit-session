@@ -29,6 +29,23 @@ npm test -- --coverage
 npm run test:ui
 ```
 
+## Match outcomes and approval actions
+
+```ts
+session.actions.undo();
+session.actions.restart();
+session.actions.offerDraw(); // peer approval required
+session.actions.resign();    // immediate terminal action
+
+const snapshot = session.observer.getSnapshot();
+snapshot?.pendingAction; // "undo" | "restart" | "draw" | null
+snapshot?.outcome;       // win/draw outcome, synchronized on reconnect
+```
+
+Draw offers share the generic `REQUEST` / `APPROVE` / `REJECT` flow. Resigning
+does not require approval. Winner labels remain relative to each peer and use
+the existing local/remote translation during synchronization.
+
 ### 关键改变
 
 **NetClient 命名**:
@@ -240,5 +257,4 @@ A: 一个 test 一个概念。详见 `TESTING.md`。
 - 问题排查: 检查 `TESTING.md` 常见问题部分
 - 改进建议: 参考 `IMPROVEMENTS.md`
 - 测试编写: 参考 `src/session/__tests__/` 中的例子
-
 

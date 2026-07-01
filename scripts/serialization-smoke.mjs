@@ -569,4 +569,115 @@ const oneMoveWinPlugin = {
   assert.equal(session.state.getHistory()[0].player, 'local');
 }
 
+{
+  const { client, session } = await startGameWithFirstPlayer('local');
+  session.actions.move({ step: 'keep-this-move' });
+  await waitForBus();
+
+  session.actions.offerDraw();
+  await waitForBus();
+
+  const sent = client.sent.at(-1);
+  assert.equal(sent.type, 'REQUEST');
+  assert.equal(sent.payload.action, 'draw');
+  assert.equal(session.state.getPendingAction(), 'draw');
+  assert.equal(session.state.getState('local'), 'waiting_approval');
+  assert.equal(session.state.getState('remote'), 'approving');
+
+  client.inbound({
+    type: 'APPROVE',
+    payload: { action: 'draw' },
+    from: 'remote',
+  });
+  await waitForBus();
+
+  assert.deepEqual(session.state.getOutcome(), {
+    kind: 'draw',
+    reason: 'agreement',
+  });
+  assert.equal(session.state.getHistory().length, 1);
+  assert.equal(session.state.getState('local'), 'idle');
+  assert.equal(session.state.getState('remote'), 'idle');
+  assert.equal(session.observer.getSnapshot().outcome.kind, 'draw');
+}
+
+{
+  const { client, session } = await startGame();
+  const before = {
+    local: session.state.getState('local'),
+    remote: session.state.getState('remote'),
+  };
+
+  client.inbound({
+    type: 'REQUEST',
+    payload: { action: 'draw' },
+    from: 'remote',
+  });
+  await waitForBus();
+  assert.equal(session.state.getPendingAction(), 'draw');
+  assert.equal(session.state.getState('local'), 'approving');
+
+  session.actions.reject();
+  await waitForBus();
+  assert.equal(client.sent.at(-1).payload.action, 'draw');
+  assert.equal(session.state.getOutcome(), null);
+  assert.equal(session.state.getState('local'), before.local);
+  assert.equal(session.state.getState('remote'), before.remote);
+}
+
+{
+  const { client, session } = await startGame();
+  session.actions.resign();
+  await waitForBus();
+
+  assert.equal(client.sent.at(-1).type, 'RESIGN');
+  assert.deepEqual(session.state.getOutcome(), {
+    kind: 'win',
+    winner: 'remote',
+    reason: 'resignation',
+  });
+  assert.equal(session.state.getState('local'), 'idle');
+  assert.equal(session.state.getState('remote'), 'idle');
+}
+
+{
+  const { client, session } = await startGame();
+  client.inbound({ type: 'RESIGN', from: 'remote' });
+  await waitForBus();
+
+  assert.deepEqual(session.state.getOutcome(), {
+    kind: 'win',
+    winner: 'local',
+    reason: 'resignation',
+  });
+}
+
+{
+  const { client, session } = createConnectedSession();
+  await waitForBus();
+  client.inbound({
+    type: 'SYNC_STATE',
+    payload: {
+      history: [],
+      lastStart: 'local',
+      turn: 'local',
+      outcome: {
+        kind: 'win',
+        winner: 'local',
+        reason: 'resignation',
+      },
+    },
+    from: 'remote',
+  });
+  await waitForBus();
+
+  assert.deepEqual(session.state.getOutcome(), {
+    kind: 'win',
+    winner: 'remote',
+    reason: 'resignation',
+  });
+  assert.equal(session.state.getState('local'), 'idle');
+  assert.equal(session.state.getState('remote'), 'idle');
+}
+
 console.log('serialization smoke passed');

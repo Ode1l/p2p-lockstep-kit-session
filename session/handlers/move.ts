@@ -80,10 +80,7 @@ export const move: CommandListener = (command) => {
         turn,
       });
 
-      // Transition both FSMs back to idle (game ready to restart)
-      state.dispatch('local', 'GAME_OVER');
-      state.dispatch('remote', 'GAME_OVER');
-      state.cleanupGame();
+      state.completeGame({ kind: 'win', winner, reason: 'rules' });
       consoleLogger.debug('[session:move] local game over applied', {
         winner,
         turn,
@@ -130,10 +127,7 @@ export const move: CommandListener = (command) => {
     // Game ended - someone won
     consoleLogger.debug('[session:move] game over detected', { winner, turn });
 
-    // Transition both FSMs back to idle (game ready to restart)
-    state.dispatch('local', 'GAME_OVER');
-    state.dispatch('remote', 'GAME_OVER');
-    state.cleanupGame();
+    state.completeGame({ kind: 'win', winner, reason: 'rules' });
     consoleLogger.debug('[session:move] remote game over applied', {
       winner,
       turn,

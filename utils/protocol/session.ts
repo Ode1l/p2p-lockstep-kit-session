@@ -6,6 +6,8 @@ export type SessionMessageType =
   | 'MOVE'
   | 'UNDO'
   | 'RESTART'
+  | 'REQUEST'
+  | 'RESIGN'
   | 'APPROVE'
   | 'REJECT'
   | 'SYNC_REQUEST'

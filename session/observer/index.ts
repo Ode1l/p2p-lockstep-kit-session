@@ -1,4 +1,5 @@
 import type {
+  GameOutcome,
   PendingAction,
   PlayerLabel,
   TurnEntry,
@@ -14,6 +15,7 @@ export interface GameStateSnapshot {
   history: TurnEntry[];
   lastStart: PlayerLabel | null;
   pendingAction: PendingAction;
+  outcome: GameOutcome | null;
   connected: boolean;
 }
 
@@ -25,6 +27,8 @@ export interface GameEvent {
     | 'GAME_OVER'
     | 'UNDO'
     | 'RESTART'
+    | 'DRAW'
+    | 'RESIGN'
     | 'OFFLINE'
     | 'ONLINE'
     | 'SYNC'
@@ -195,6 +199,7 @@ export function buildGameStateSnapshot(
     history: state.getHistory(),
     lastStart: state.getLastStart(),
     pendingAction: state.getPendingAction(),
+    outcome: state.getOutcome(),
     connected,
   };
 }

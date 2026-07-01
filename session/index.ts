@@ -59,5 +59,11 @@ export const createSession = (networkClient: NetworkClient, sid?: string) => {
 
 export * from './observer';
 export type { ISessionActions } from './actions';
-export type { PendingAction, PlayerLabel, TurnEntry } from './state/state';
+export type {
+  GameOutcome,
+  PendingAction,
+  PendingActionId,
+  PlayerLabel,
+  TurnEntry,
+} from './state/state';
 export type { SessionEvent, SessionState } from './state/fsm';
